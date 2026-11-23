@@ -1,0 +1,112 @@
+/* Anmeldung, Teilnehmerinnen-Bereich und Verwaltung – gleiche Hausfarben und Schriften wie die Seite */
+body.app{background:var(--sand)}
+.app-kopf{background:var(--sand-hell);border-bottom:1px solid var(--linie);position:sticky;top:0;z-index:30}
+.app-kopf__innen{max-width:1400px;margin:auto;padding:10px var(--rand);display:flex;align-items:center;gap:18px}
+.app-kopf .logo{font-size:1.4rem}
+.app-kopf__wer{font-size:.9rem;color:var(--tinte-weich)}
+.knopf--leise{background:transparent;color:var(--gruen);border-color:var(--linie)}
+.knopf--leise:hover{background:var(--sand-tief);color:var(--gruen-tief);border-color:var(--linie)}
+.knopf--klein{min-height:40px;padding:8px 14px;font-size:.88rem}
+.knopf--gefahr{background:#8F2D18;border-color:#8F2D18}
+.knopf--gefahr:hover{background:#6E2111;border-color:#6E2111}
+.karte{background:var(--sand-hell);border:1px solid var(--linie);padding:clamp(20px,3vw,36px);box-shadow:var(--schatten-weich);margin-bottom:24px}
+.karte h2,.karte h3{margin-top:0}
+.reihe{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.reihe--ende{justify-content:flex-end}
+.raster2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.raster3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+@media (max-width:800px){.raster2,.raster3{grid-template-columns:1fr}}
+.meldung{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--gruen-tief);color:var(--sand);padding:14px 22px;border-radius:var(--radius);box-shadow:var(--schatten-stark);z-index:80;max-width:90vw}
+.meldung--fehler{background:#8F2D18}
+.leer{color:var(--tinte-weich);font-style:italic}
+.zahl{font:500 2.6rem/1 var(--anzeige);color:var(--gruen-tief)}
+.zahl-beschr{font-size:.85rem;color:var(--tinte-weich);letter-spacing:.04em}
+.tabelle{width:100%;border-collapse:collapse;font-size:.95rem}
+.tabelle th{text-align:left;font:700 .72rem var(--text);letter-spacing:.12em;text-transform:uppercase;color:var(--tinte-weich);padding:10px 8px;border-bottom:1px solid var(--linie)}
+.tabelle td{padding:12px 8px;border-bottom:1px solid var(--linie);vertical-align:top}
+.tabelle tr:hover td{background:rgba(231,220,203,.35)}
+.tabelle-huelle{overflow-x:auto}
+.etikett{display:inline-block;font:700 .7rem/1 var(--text);letter-spacing:.1em;text-transform:uppercase;padding:6px 9px;border-radius:999px;background:var(--sand-tief);color:var(--tinte-weich)}
+.etikett--neu{background:#F6D8BF;color:#7A3A12}
+.etikett--gruen{background:var(--gruen-hell);color:var(--gruen-tief)}
+.etikett--rot{background:#F3CFC6;color:#7E2410}
+.hinweisbox{background:#FBEBDD;border-left:3px solid var(--orange);padding:14px 18px;margin-bottom:20px}
+.hinweisbox--gruen{background:var(--gruen-hell);border-color:var(--gruen)}
+.balken{display:flex;align-items:flex-end;gap:3px;height:120px;margin:16px 0 6px}
+.balken span{flex:1;background:var(--gruen);min-height:2px;opacity:.85}
+.balken span:hover{background:var(--orange-tief)}
+.fortschritt{height:8px;background:var(--sand-tief);border-radius:4px;overflow:hidden;margin:8px 0}
+.fortschritt span{display:block;height:100%;background:var(--gruen);transition:width .3s}
+
+/* Anmeldung */
+.anmeldung{min-height:calc(100vh - 70px);display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr)}
+.anmeldung__bild{background:var(--gruen);color:var(--sand);padding:clamp(32px,6vw,88px);display:flex;flex-direction:column;justify-content:flex-end}
+.anmeldung__bild .h1{color:var(--sand)}
+.anmeldung__bild .zitat{font:italic 500 1.5rem/1.35 var(--anzeige);max-width:22em;opacity:.9}
+.anmeldung__form{padding:clamp(32px,6vw,88px);display:flex;align-items:center}
+.anmeldung__form > div{width:100%;max-width:440px}
+@media (max-width:860px){.anmeldung{grid-template-columns:1fr}.anmeldung__bild{min-height:auto;padding-top:40px}}
+.code-eingabe{font:500 2rem var(--anzeige);letter-spacing:.4em;text-align:center}
+
+/* Teilnehmerinnen-Bereich */
+.bereich{max-width:1100px;margin:auto;padding:40px var(--rand) 80px}
+.reisekopf{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:28px;align-items:end;background:var(--gruen);color:var(--sand);padding:clamp(24px,4vw,48px);margin-bottom:24px}
+.reisekopf .h2{color:var(--sand);margin:0}
+.reisekopf__zaehler{text-align:right}
+.reisekopf__zaehler .zahl{color:#F0B47F;font-size:3.6rem}
+.reisekopf__zaehler .zahl-beschr{color:var(--sand)}
+@media (max-width:700px){.reisekopf{grid-template-columns:1fr}.reisekopf__zaehler{text-align:left}}
+.packliste{list-style:none;padding:0;margin:0;columns:2 260px}
+.packliste li{break-inside:avoid}
+.packliste label{display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer}
+.packliste input{width:20px;height:20px;min-height:0;accent-color:var(--gruen)}
+.packliste input:checked + span{text-decoration:line-through;color:var(--tinte-weich)}
+.nachricht{border-left:2px solid var(--orange);padding:4px 0 4px 16px;margin-bottom:18px}
+.nachricht small{color:var(--tinte-weich)}
+.dokumente a{display:flex;align-items:center;gap:10px;min-height:44px}
+
+/* Verwaltung */
+.verw{display:grid;grid-template-columns:240px minmax(0,1fr);max-width:1400px;margin:auto;min-height:calc(100vh - 62px)}
+.verw__nav{border-right:1px solid var(--linie);padding:24px 12px;position:sticky;top:62px;height:calc(100vh - 62px);overflow:auto}
+.verw__nav a{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;min-height:44px;text-decoration:none;border-radius:var(--radius);font-size:.98rem}
+.verw__nav a[aria-current="page"]{background:var(--gruen);color:var(--sand)}
+.verw__nav a:hover:not([aria-current]){background:var(--sand-tief);color:var(--tinte)}
+.verw__nav .zaehl{font-size:.75rem;font-weight:700;background:var(--orange-tief);color:#fff;border-radius:999px;padding:2px 8px}
+.verw__inhalt{padding:28px clamp(16px,3vw,40px) 80px}
+.verw__inhalt > header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.verw__inhalt > header h1{margin:0}
+@media (max-width:900px){.verw{grid-template-columns:1fr}.verw__nav{position:static;height:auto;display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--linie);padding:8px}.verw__nav a{white-space:nowrap}}
+.zwei-sprachen{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.zwei-sprachen .sprache{font:700 .7rem var(--text);letter-spacing:.14em;color:var(--tinte-weich)}
+@media (max-width:900px){.zwei-sprachen{grid-template-columns:1fr}}
+.textfeld{padding:16px 0;border-bottom:1px solid var(--linie)}
+.textfeld > label{font-weight:700;display:block;margin-bottom:8px}
+.textfeld textarea{min-height:96px}
+.textfeld .mini{display:flex;justify-content:space-between;font-size:.8rem;color:var(--tinte-weich);margin-top:4px}
+.gruppen{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.gruppen button{min-height:40px;padding:6px 14px;border:1px solid var(--linie);border-radius:999px;background:#fff;cursor:pointer;font:inherit;font-size:.9rem}
+.gruppen button[aria-pressed="true"]{background:var(--gruen);color:var(--sand);border-color:var(--gruen)}
+.leiste{position:sticky;bottom:0;background:var(--sand-hell);border-top:1px solid var(--linie);padding:12px 0;margin-top:20px;display:flex;justify-content:flex-end;gap:12px;z-index:5}
+.bildraster{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.bildkachel{background:#fff;border:1px solid var(--linie);padding:8px;font-size:.85rem}
+.bildkachel img{width:100%;aspect-ratio:4/3;object-fit:cover;margin-bottom:8px}
+.bildkachel input{min-height:36px;padding:6px 8px;font-size:.85rem;margin-bottom:6px}
+.bildwahl{display:flex;gap:12px;align-items:center}
+.bildwahl img,.bildwahl .platz{width:96px;height:72px;object-fit:cover;background:var(--sand-tief);border:1px solid var(--linie)}
+dialog{border:1px solid var(--linie);padding:0;max-width:min(920px,94vw);width:100%;box-shadow:var(--schatten-stark);background:var(--sand-hell)}
+dialog::backdrop{background:rgba(34,54,42,.5)}
+dialog .dlg-kopf{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--linie)}
+dialog .dlg-rumpf{padding:24px;max-height:72vh;overflow:auto}
+.vorschau-rahmen{width:100%;height:560px;border:1px solid var(--linie);background:#fff}
+.block{border:1px solid var(--linie);background:#fff;padding:12px;margin-bottom:10px}
+.block__kopf{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--tinte-weich);margin-bottom:8px;letter-spacing:.08em;text-transform:uppercase}
+.befund{display:grid;grid-template-columns:90px 140px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--linie);font-size:.95rem}
+@media (max-width:700px){.befund{grid-template-columns:1fr}}
+details.klappe summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}
+a.karte{text-decoration:none;color:inherit;display:block;transition:box-shadow .3s}
+a.karte:hover{box-shadow:var(--schatten-stark);color:inherit}
+.reisekopf__zaehler .zahl,.reisekopf__zaehler .zahl-beschr{display:block}
+.verw__inhalt:focus,.bereich:focus{outline:none}
+details.klappe summary::before{content:"+";display:inline-block;width:1.2em;color:var(--orange-tief)}
+details.klappe[open] summary::before{content:"–"}
+button.textlink{background:none;border:0;padding:0 4px;cursor:pointer;font:inherit;font-weight:700;min-height:32px}

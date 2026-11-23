@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /verwaltung
+Disallow: /mein-bereich
+Disallow: /anmelden
+Disallow: /einladung
+Disallow: /api/
+Allow: /
+
+Sitemap: https://anam-cara.at/sitemap.xml
