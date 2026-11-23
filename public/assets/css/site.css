@@ -365,9 +365,10 @@ body.mit-landschaft{background:var(--nacht)}
 .mit-landschaft .name .name__zitat{color:var(--mond)}
 .mit-landschaft .name .vorzeile{color:var(--glut)}
 .mit-landschaft .reisen{background:rgba(12,20,16,.8);margin-top:0}
-.mit-landschaft .fuerwen,.mit-landschaft .weg,.mit-landschaft .wir,.mit-landschaft .stimmen,.mit-landschaft .galerie-start,.mit-landschaft .nl,.mit-landschaft .faq{background:var(--sand) var(--korn);box-shadow:0 0 0 100vmax var(--sand);clip-path:inset(0 -100vmax)}
+.mit-landschaft .fuerwen,.mit-landschaft .weg,.mit-landschaft .wir,.mit-landschaft .stimmen,.mit-landschaft .galerie-start{background:var(--sand) var(--korn);box-shadow:0 0 0 100vmax var(--sand);clip-path:inset(0 -100vmax)}
 .mit-landschaft .wir{padding-bottom:calc(var(--abstand) + 60px)}
 .mit-landschaft .faq{padding-bottom:var(--abstand)}
+
 .mit-landschaft .gratis{padding-top:clamp(120px,22vh,240px);padding-bottom:clamp(120px,22vh,240px)}
 .mit-landschaft .gratis__gross{background:rgba(12,20,16,.86)}
 .mit-landschaft .gratis__klein{background:rgba(47,74,58,.9)}
@@ -375,3 +376,81 @@ body.mit-landschaft{background:var(--nacht)}
 .fuss__credit a{color:var(--mond-weich)}
 @media (prefers-reduced-motion:reduce){.land__nebel::before,.land__licht{animation:none!important}.land__bild{transform:scale(1.04)!important}}
 @media (max-width:700px){.land__mond{right:2%;top:11%;width:130px;height:130px}.land__bild{transform-origin:62% 55%}.land__foto{object-position:62% 50%}}
+
+/* Rauch */
+.land__rauch{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;opacity:calc(.55 + var(--p) * .45)}
+.rauch-vorne{position:fixed;inset:0;width:100%;height:100%;z-index:15;pointer-events:none}
+
+/* Unten mystisch: dunkle Fenster über der Nachtlandschaft */
+.mit-landschaft .nl{padding-bottom:0}
+.mit-landschaft .nl__innen{background:rgba(12,20,16,.72);border-color:rgba(232,160,102,.35);color:var(--mond)}
+.mit-landschaft .nl__innen::before{border-color:rgba(232,160,102,.2)}
+.mit-landschaft .nl .h2{color:var(--mond)}
+.mit-landschaft .nl p,.mit-landschaft .nl .haken{color:var(--mond-weich)}
+.mit-landschaft .nl a{color:var(--glut)}
+.mit-landschaft .nl input[type=email]{background:rgba(239,228,207,.08);border-color:rgba(239,228,207,.25);color:var(--mond)}
+.mit-landschaft .nl input::placeholder{color:rgba(239,228,207,.55)}
+.mit-landschaft .nl .knopf--hell{background:var(--orange-tief);border-color:var(--orange-tief)}
+.mit-landschaft .faq{max-width:none}
+.mit-landschaft .faq .schmal{background:rgba(12,20,16,.7);padding:clamp(36px,5vw,64px);border:1px solid rgba(232,160,102,.22)}
+.mit-landschaft .faq .h2,.mit-landschaft .faq summary{color:var(--mond)}
+.mit-landschaft .faq .vorzeile{color:var(--glut)}
+.mit-landschaft .faq details{border-color:rgba(239,228,207,.16)}
+.mit-landschaft .faq details > div{color:var(--mond-weich)}
+.mit-landschaft .faq summary::after{background:linear-gradient(var(--glut),var(--glut)) center/16px 1px no-repeat,linear-gradient(var(--glut),var(--glut)) center/1px 16px no-repeat}
+
+/* Zeremonie: Feuer im Steinkreis */
+.zeremonie{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(32px,6vw,90px);align-items:center;color:var(--mond)}
+.zeremonie .h2{color:var(--mond)}
+.zeremonie .h2 em{color:var(--glut)}
+.zeremonie__text p:not(.vorzeile){color:var(--mond-weich);font-size:1.1rem}
+.ritual{position:relative;text-align:center;padding:20px 0 10px}
+.ritual__kreis{position:relative;z-index:2;width:100%;max-width:640px;margin:0 auto;overflow:visible}
+.ritual__boden{fill:rgba(10,18,14,.55)}
+.ritual__schein{opacity:0;transition:opacity 1.4s}
+.stein{fill:#5B6A5E;stroke:rgba(239,228,207,.28);stroke-width:1}
+.ritual__schale{fill:#1B1714;stroke:rgba(232,160,102,.5);stroke-width:1}
+.ritual__rand{fill:#2A221C;stroke:rgba(232,160,102,.6);stroke-width:1}
+.flamme{transform-origin:300px 240px;transform:scale(0);transition:transform 1.2s cubic-bezier(.22,.61,.36,1)}
+.flamme--aussen{fill:#C9612A;opacity:.85}.flamme--mitte{fill:#E8A066}.flamme--kern{fill:#FFE4B5}
+.ritual.brennt .flamme{transform:scale(1)}
+.ritual.brennt .flamme--aussen{animation:flackern 2.6s ease-in-out infinite}
+.ritual.brennt .flamme--mitte{animation:flackern 1.9s ease-in-out infinite reverse}
+.ritual.brennt .flamme--kern{animation:flackern 1.3s ease-in-out infinite}
+@keyframes flackern{0%,100%{transform:scale(1,1) skewX(0)}30%{transform:scale(.94,1.06) skewX(2deg)}60%{transform:scale(1.04,.96) skewX(-2deg)}}
+.ritual.brennt .ritual__schein{opacity:.55}
+.ritual.brennt .stein{fill:#6E7A68;transition:fill 1.6s}
+.ritual__funken,.ritual__dampf{position:absolute;inset:-160px 0 0 0;width:100%;height:calc(100% + 160px);pointer-events:none;z-index:3}
+.ritual__dampf{z-index:1;mix-blend-mode:screen}
+.ritual__atem{position:absolute;left:50%;top:44%;width:260px;height:260px;margin:-130px 0 0 -130px;pointer-events:none;z-index:1}
+.ritual__atem span{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(232,160,102,.0);transform:scale(.55);transition:transform 4s cubic-bezier(.45,0,.55,1),border-color 1.2s,opacity 1.2s}
+.ritual__atem span:nth-child(2){inset:22px}.ritual__atem span:nth-child(3){inset:44px}
+.ritual.brennt .ritual__atem span{border-color:rgba(232,160,102,.35)}
+.ritual[data-phase="ein"] .ritual__atem span,.ritual[data-phase="halt"] .ritual__atem span{transform:scale(1.25)}
+.ritual[data-phase="ein"] .ritual__atem span{transition-duration:4s}
+.ritual[data-phase="aus"] .ritual__atem span{transform:scale(.55);transition-duration:6s}
+.ritual[data-phase="ein"] .ritual__schein,.ritual[data-phase="halt"] .ritual__schein{opacity:1;transition-duration:4s}
+.ritual[data-phase="aus"] .ritual__schein{opacity:.4;transition-duration:6s}
+.ritual__anzeige{min-height:2em;font:italic 300 1.7rem/1.3 var(--anzeige);color:var(--mond);margin:6px auto 12px;letter-spacing:.02em}
+.ritual__ende{font:300 1.35rem var(--anzeige);color:var(--mond);display:flex;flex-direction:column;align-items:center;gap:8px;margin:16px auto 0}
+.ritual__aktionen{display:flex;justify-content:center}
+@media (max-width:900px){.zeremonie{grid-template-columns:1fr}}
+
+/* Kleine Animationen, die zu Retreats passen */
+.mit-landschaft .held__inhalt > *{animation:aufsteigen 1.4s cubic-bezier(.22,.61,.36,1) both}
+.mit-landschaft .held__inhalt > :nth-child(2){animation-delay:.25s}
+.mit-landschaft .held__inhalt > :nth-child(3){animation-delay:.55s}
+.mit-landschaft .held__inhalt > :nth-child(4){animation-delay:.8s}
+.mit-landschaft .kartusche{animation:aufsteigen 1.6s 1.1s cubic-bezier(.22,.61,.36,1) both}
+@keyframes aufsteigen{from{opacity:0;transform:translateY(22px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+.zier.wartet .marke path{stroke-dasharray:420;stroke-dashoffset:420}
+.zier.ist-da .marke path{stroke-dasharray:420;stroke-dashoffset:0;transition:stroke-dashoffset 2.4s cubic-bezier(.22,.61,.36,1) .2s}
+.weg__liste li.wartet .mond__licht{opacity:0;transform:scale(.4)}
+.weg__liste li.ist-da .mond__licht{opacity:1;transform:none;transform-box:fill-box;transform-origin:center;transition:opacity 1.2s .4s,transform 1.2s .4s}
+.held__pfeil{animation:sinken 3.2s ease-in-out infinite}
+@keyframes sinken{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(10px);opacity:1}}
+.kartusche{box-shadow:0 0 0 rgba(232,160,102,0);animation:glimmen 6s ease-in-out infinite}
+@keyframes glimmen{0%,100%{box-shadow:0 0 0 0 rgba(232,160,102,0)}50%{box-shadow:0 0 34px 0 rgba(232,160,102,.18)}}
+.mit-landschaft .kartusche{animation:aufsteigen 1.6s 1.1s cubic-bezier(.22,.61,.36,1) both,glimmen 6s 3s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.mit-landschaft .held__inhalt > *,.kartusche{animation:none!important}.flamme{transform:scale(1)}.ritual__atem span{transition:none}}
+.knopf[disabled]{opacity:.45}

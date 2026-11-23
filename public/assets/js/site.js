@@ -60,6 +60,93 @@
     addEventListener('resize', setzen); setzen();
   }
 
+  // ---------- Rauch: weiche Schwaden, die fortlaufend aufsteigen ----------
+  // Schwaden-Sprites aus der Nebeltextur: unregelmäßig und faserig statt runder Flecken
+  const nebelBild = new Image(); nebelBild.src = '/assets/bilder/nebel-2.webp';
+  function rauchSprites(farbe) {
+    const liste = [];
+    for (let k = 0; k < 5; k++) {
+      const c = d.createElement('canvas'); c.width = 256; c.height = 320; const x = c.getContext('2d');
+      if (nebelBild.complete && nebelBild.naturalWidth) {
+        const sx = Math.random() * (nebelBild.naturalWidth - 420), sy = 60 + Math.random() * 120;
+        x.save(); x.translate(128, 160); x.rotate(Math.PI / 2 + (Math.random() - .5) * .6); x.drawImage(nebelBild, sx, sy, 420, 300, -170, -120, 340, 240); x.restore();
+        x.globalCompositeOperation = 'source-in'; x.fillStyle = `rgb(${farbe})`; x.fillRect(0, 0, 256, 320);
+        x.globalCompositeOperation = 'destination-in';
+        const g = x.createRadialGradient(128, 160, 20, 128, 160, 150); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        x.fillStyle = g; x.fillRect(0, 0, 256, 320);
+      } else {
+        const g = x.createRadialGradient(128, 160, 0, 128, 160, 110); g.addColorStop(0, `rgba(${farbe},.25)`); g.addColorStop(1, `rgba(${farbe},0)`); x.fillStyle = g; x.fillRect(0, 0, 256, 320);
+      }
+      liste.push(c);
+    }
+    return liste;
+  }
+  function rauch(canvas, { anzahl = 30, alpha = .5, farbe = '236,230,218', quelle, hoehe = .7, groesse = [60, 160], tempo = [.25, .6], skala = .5 }) {
+    const x = canvas.getContext('2d'); let sprites = rauchSprites(farbe); if (!nebelBild.complete) nebelBild.addEventListener('load', () => { sprites = rauchSprites(farbe); }); let teile = [], b = 0, h = 0, lauf = true;
+    const mass = () => { const r = canvas.getBoundingClientRect(); b = canvas.width = Math.max(1, Math.round(r.width * skala)); h = canvas.height = Math.max(1, Math.round(r.height * skala)); };
+    mass(); addEventListener('resize', mass);
+    const neu = (start) => { const q = quelle(b, h); return { x: q.x, y: start ? h - Math.random() * h * hoehe : q.y, vx: (Math.random() - .5) * .15, vy: -(tempo[0] + Math.random() * (tempo[1] - tempo[0])) * skala * 2, s: (groesse[0] + Math.random() * (groesse[1] - groesse[0])) * skala, ds: .12 * skala, r: Math.random() * 6.3, vr: (Math.random() - .5) * .004, ph: Math.random() * 6.3, k: Math.floor(Math.random() * 5), t: 0, max: (h * hoehe) / ((tempo[0] + tempo[1]) * skala) }; };
+    for (let i = 0; i < anzahl; i++) teile.push(neu(true));
+    const schritt = () => {
+      if (!lauf) return;
+      x.clearRect(0, 0, b, h);
+      for (const p of teile) {
+        p.t++; p.ph += .01; p.x += p.vx + Math.sin(p.ph) * .25 * skala; p.y += p.vy; p.s += p.ds; p.r += p.vr;
+        const leben = p.t / p.max, a = alpha * Math.min(1, leben * 4) * Math.max(0, 1 - leben);
+        if (a <= 0 && leben > 1) { Object.assign(p, neu(false)); continue; }
+        x.globalAlpha = a; x.save(); x.translate(p.x, p.y); x.rotate(Math.sin(p.r) * .35); x.drawImage(sprites[p.k], -p.s / 2, -p.s * .62, p.s, p.s * 1.25); x.restore();
+      }
+      requestAnimationFrame(schritt);
+    };
+    d.addEventListener('visibilitychange', () => { const war = lauf; lauf = !d.hidden; if (lauf && !war) requestAnimationFrame(schritt); });
+    requestAnimationFrame(schritt);
+  }
+  if (land && !ruhig.matches) {
+    const hinten = d.createElement('canvas'); hinten.className = 'land__rauch'; hinten.setAttribute('aria-hidden', 'true');
+    land.insertBefore(hinten, land.querySelector('.land__lichter'));
+    rauch(hinten, { anzahl: 46, alpha: .75, quelle: (b, h) => ({ x: Math.random() * b, y: h + 40 }), hoehe: .75, groesse: [90, 240], tempo: [.3, .7] });
+    const vorne = d.createElement('canvas'); vorne.className = 'rauch-vorne'; vorne.setAttribute('aria-hidden', 'true'); d.body.append(vorne);
+    rauch(vorne, { anzahl: 18, alpha: .32, farbe: '205,198,186', quelle: (b, h) => ({ x: Math.random() < .5 ? Math.random() * b * .13 : b - Math.random() * b * .13, y: h + 30 }), hoehe: .95, groesse: [70, 170], tempo: [.35, .65] });
+  }
+
+  // ---------- Ritual: Feuer im Steinkreis, Funken und drei Atemzüge ----------
+  d.querySelectorAll('[data-ritual]').forEach(r => {
+    const en = r.dataset.lang === 'en';
+    const T = en ? { ein: 'Breathe in', halt: 'Hold', aus: 'Breathe out', zahl: n => `Breath ${n} of 3`, neu: 'Once more' } : { ein: 'Einatmen', halt: 'Halten', aus: 'Ausatmen', zahl: n => `Atemzug ${n} von 3`, neu: 'Noch einmal' };
+    const anz = r.querySelector('.ritual__anzeige'), knopf = r.querySelector('[data-ritual-start]'), ende = r.querySelector('.ritual__ende');
+    const funken = r.querySelector('.ritual__funken'); let funkenAn = false;
+    const warte = ms => new Promise(ok => setTimeout(ok, ms));
+    function funkenStarten() {
+      if (funkenAn || ruhig.matches) return; funkenAn = true;
+      const x = funken.getContext('2d'); let b, h; const teile = [];
+      const mass = () => { const q = funken.getBoundingClientRect(); b = funken.width = q.width; h = funken.height = q.height; }; mass(); addEventListener('resize', mass);
+      const glut = d.createElement('canvas'); glut.width = glut.height = 32; const g = glut.getContext('2d'); const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gr.addColorStop(0, 'rgba(255,226,170,1)'); gr.addColorStop(.35, 'rgba(240,160,80,.7)'); gr.addColorStop(1, 'rgba(232,120,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+      const quelle = () => { const s = r.querySelector('.ritual__kreis').getBoundingClientRect(), f = funken.getBoundingClientRect(); return { x: s.left - f.left + s.width / 2, y: s.top - f.top + s.height * .62 }; };
+      const schritt = () => {
+        x.clearRect(0, 0, b, h); const q = quelle();
+        if (teile.length < 46 && Math.random() < .5) teile.push({ x: q.x + (Math.random() - .5) * 26, y: q.y, vx: (Math.random() - .5) * .5, vy: -(0.7 + Math.random() * 1.3), t: 0, max: 90 + Math.random() * 120, s: 3 + Math.random() * 5, ph: Math.random() * 6 });
+        for (let i = teile.length - 1; i >= 0; i--) { const p = teile[i]; p.t++; p.ph += .08; p.x += p.vx + Math.sin(p.ph) * .35; p.y += p.vy; p.vy *= .995;
+          const a = Math.max(0, 1 - p.t / p.max); if (a <= 0) { teile.splice(i, 1); continue; }
+          x.globalAlpha = a * (.6 + .4 * Math.sin(p.ph * 2)); x.drawImage(glut, p.x - p.s, p.y - p.s, p.s * 2, p.s * 2); }
+        requestAnimationFrame(schritt);
+      };
+      requestAnimationFrame(schritt);
+      rauch(funken.parentElement.querySelector('.ritual__dampf') || (() => { const c = d.createElement('canvas'); c.className = 'ritual__dampf'; c.setAttribute('aria-hidden', 'true'); funken.after(c); return c; })(),
+        { anzahl: 16, alpha: .6, quelle: (bb, hh) => ({ x: bb / 2 + (Math.random() - .5) * 20, y: hh * .58 }), hoehe: .6, groesse: [30, 110], tempo: [.35, .6], skala: 1 });
+    }
+    knopf.addEventListener('click', async () => {
+      knopf.disabled = true; ende.hidden = true; r.classList.add('brennt'); funkenStarten();
+      await warte(1200);
+      for (let n = 1; n <= 3; n++) {
+        r.dataset.phase = 'ein'; anz.textContent = `${T.ein} · ${T.zahl(n)}`; await warte(4000);
+        r.dataset.phase = 'halt'; anz.textContent = T.halt; await warte(2000);
+        r.dataset.phase = 'aus'; anz.textContent = T.aus; await warte(6000);
+      }
+      r.dataset.phase = ''; anz.textContent = ''; ende.hidden = false; knopf.textContent = T.neu; knopf.disabled = false;
+    });
+  });
+
   // Anonyme Besuchszählung: ohne Cookie, ohne Kennung, ohne IP-Speicherung
   try {
     const r = d.referrer ? new URL(d.referrer).host : '';
