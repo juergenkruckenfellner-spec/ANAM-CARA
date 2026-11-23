@@ -317,7 +317,61 @@ input:focus,select:focus,textarea:focus{border-color:var(--gruen);outline:2px so
 .z-krater{fill:#CDB894;opacity:.35}.z-fels{fill:#1A2820}.z-dunstlinie{stroke:var(--mond);stroke-width:1;opacity:.08}
 .z-hof{opacity:.28}
 .h1--held{hyphens:manual;-webkit-hyphens:manual;max-width:14ch}
+.bogen > img{object-position:58% 50%}
 .bogen > img,.bogen > svg{clip-path:inset(0 round 999px 999px 3px 3px)}
 .bogen::after{top:-12px;left:-12px;right:auto;bottom:auto;width:calc(100% + 24px);height:auto;aspect-ratio:3/4.05}
 .z-mondgruppe{transform-box:view-box;transform-origin:1030px 240px}
 @media (max-width:700px){.z-mondgruppe{transform:translate(-150px,-185px) scale(.5)}.held__inhalt{padding-top:150px}}
+
+/* ============ Bewegte Landschaft (nur Startseite) ============ */
+body.mit-landschaft{background:var(--nacht)}
+.landschaft{--p:0;position:fixed;inset:0;z-index:-1;overflow:hidden;background:var(--nacht);pointer-events:none}
+.land__bild{position:absolute;inset:-4% -2%;transform:translate3d(0,calc(var(--p) * -5%),0) scale(calc(1.04 + var(--p) * .16));transform-origin:58% 55%;will-change:transform}
+.land__foto{width:100%;height:100%;object-fit:cover;object-position:58% 50%;filter:saturate(.9) contrast(1.04)}
+.land__abend{position:absolute;inset:0;background:linear-gradient(180deg,rgba(232,160,102,.22) 0%,rgba(217,130,63,.10) 45%,rgba(18,28,23,.0) 70%);mix-blend-mode:soft-light;opacity:calc(1 - var(--p) * 1.6)}
+.land__nacht{position:absolute;inset:0;background:linear-gradient(180deg,#0A1410 0%,#0F1D18 40%,#132620 100%);opacity:calc(.18 + var(--p) * .72)}
+.land__sterne{position:absolute;left:0;top:0;width:100%;height:62%;opacity:calc((var(--p) - .28) * 1.6);transform:translate3d(0,calc(var(--p) * 2%),0)}
+.land__mond{position:absolute;right:7%;top:9%;width:clamp(200px,22vw,340px);height:clamp(200px,22vw,340px);opacity:calc((var(--p) - .02) * 9);transform:translate3d(0,max(0vh,calc((.3 - var(--p)) * 90vh)),0)}
+.land__nebel{position:absolute;left:0;right:0;height:46%;overflow:hidden;will-change:transform}
+.land__nebel::before{content:"";position:absolute;top:0;bottom:0;left:0;width:calc(100% + 1792px);background-repeat:repeat-x;background-size:1792px 100%;animation:nebelZieht 140s linear infinite;will-change:transform}
+.land__nebel--1{bottom:4%;opacity:calc(.35 + var(--p) * .45);transform:translate3d(0,calc(var(--p) * -18%),0)}
+.land__nebel--1::before{background-image:url(/assets/bilder/nebel-1.webp)}
+.land__nebel--2{bottom:18%;opacity:calc(var(--p) * .7);transform:translate3d(0,calc(var(--p) * -30%),0)}
+.land__nebel--2::before{background-image:url(/assets/bilder/nebel-2.webp);animation-duration:210s;animation-direction:reverse}
+.land__nebel--3{bottom:-6%;opacity:calc(.25 + var(--p) * .3);transform:translate3d(0,calc(var(--p) * -8%),0)}
+.land__nebel--3::before{background-image:url(/assets/bilder/nebel-3.webp);animation-duration:95s}
+@keyframes nebelZieht{from{transform:translate3d(0,0,0)}to{transform:translate3d(-1792px,0,0)}}
+.land__lichter{position:absolute;inset:0;opacity:calc((var(--p) - .35) * 2)}
+.land__licht{position:absolute;width:5px;height:5px;border-radius:50%;background:#F6C88E;box-shadow:0 0 10px 3px rgba(246,200,142,.55);animation:irrlicht 18s ease-in-out infinite}
+.land__licht[data-i="0"]{left:12%;top:72%;animation-duration:19s}
+.land__licht[data-i="1"]{left:23%;top:80%;animation-duration:23s;animation-delay:-6s}
+.land__licht[data-i="2"]{left:37%;top:76%;animation-duration:17s;animation-delay:-3s}
+.land__licht[data-i="3"]{left:48%;top:84%;animation-duration:26s;animation-delay:-11s}
+.land__licht[data-i="4"]{left:61%;top:74%;animation-duration:21s;animation-delay:-8s}
+.land__licht[data-i="5"]{left:70%;top:82%;animation-duration:24s;animation-delay:-2s}
+.land__licht[data-i="6"]{left:81%;top:77%;animation-duration:20s;animation-delay:-14s}
+.land__licht[data-i="7"]{left:90%;top:86%;animation-duration:28s;animation-delay:-5s}
+.land__licht[data-i="8"]{left:30%;top:88%;animation-duration:22s;animation-delay:-9s}
+@keyframes irrlicht{0%,100%{transform:translate(0,0);opacity:.2}25%{transform:translate(18px,-26px);opacity:.9}50%{transform:translate(-10px,-48px);opacity:.5}75%{transform:translate(14px,-20px);opacity:.85}}
+.land__vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 55% 45%,transparent 50%,rgba(8,14,11,.6) 100%)}
+
+/* Seitenaufbau über der Landschaft: Pergament-Seiten gleiten darüber, dazwischen „Fenster“ */
+.mit-landschaft .held{background:transparent;min-height:100vh}
+.mit-landschaft .held::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(10,18,14,.78) 0%,rgba(10,18,14,.42) 48%,rgba(10,18,14,0) 78%)}
+.mit-landschaft .held .h1--held,.mit-landschaft .held__lead{text-shadow:0 1px 24px rgba(0,0,0,.35)}
+.mit-landschaft .name{background:linear-gradient(180deg,rgba(10,18,14,0) 0,rgba(10,18,14,.38) 160px);max-width:none;padding-bottom:var(--abstand);color:var(--mond)}
+.mit-landschaft .name .name__wort{color:var(--mond)}
+.mit-landschaft .name .name__laut{color:var(--mond-weich)}
+.mit-landschaft .name .name__zitat{color:var(--mond)}
+.mit-landschaft .name .vorzeile{color:var(--glut)}
+.mit-landschaft .reisen{background:rgba(12,20,16,.8);margin-top:0}
+.mit-landschaft .fuerwen,.mit-landschaft .weg,.mit-landschaft .wir,.mit-landschaft .stimmen,.mit-landschaft .galerie-start,.mit-landschaft .nl,.mit-landschaft .faq{background:var(--sand) var(--korn);box-shadow:0 0 0 100vmax var(--sand);clip-path:inset(0 -100vmax)}
+.mit-landschaft .wir{padding-bottom:calc(var(--abstand) + 60px)}
+.mit-landschaft .faq{padding-bottom:var(--abstand)}
+.mit-landschaft .gratis{padding-top:clamp(120px,22vh,240px);padding-bottom:clamp(120px,22vh,240px)}
+.mit-landschaft .gratis__gross{background:rgba(12,20,16,.86)}
+.mit-landschaft .gratis__klein{background:rgba(47,74,58,.9)}
+.mit-landschaft .fuss{background:rgba(10,18,14,.9);margin-top:0}
+.fuss__credit a{color:var(--mond-weich)}
+@media (prefers-reduced-motion:reduce){.land__nebel::before,.land__licht{animation:none!important}.land__bild{transform:scale(1.04)!important}}
+@media (max-width:700px){.land__mond{right:2%;top:11%;width:130px;height:130px}.land__bild{transform-origin:62% 55%}.land__foto{object-position:62% 50%}}

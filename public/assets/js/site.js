@@ -46,6 +46,20 @@
   }
   auftritteSetzen();
 
+  // Bewegte Landschaft: Scrollfortschritt 0…1 verwandelt Abend in Mondnacht
+  const land = d.querySelector('.landschaft');
+  if (land) {
+    let wartet = false;
+    const setzen = () => {
+      wartet = false;
+      const max = Math.max(1, d.documentElement.scrollHeight - innerHeight);
+      const p = Math.min(1, Math.max(0, scrollY / max));
+      land.style.setProperty('--p', (ruhig.matches ? Math.min(p, .5) : p).toFixed(4));
+    };
+    addEventListener('scroll', () => { if (!wartet) { wartet = true; requestAnimationFrame(setzen); } }, { passive: true });
+    addEventListener('resize', setzen); setzen();
+  }
+
   // Anonyme Besuchszählung: ohne Cookie, ohne Kennung, ohne IP-Speicherung
   try {
     const r = d.referrer ? new URL(d.referrer).host : '';
