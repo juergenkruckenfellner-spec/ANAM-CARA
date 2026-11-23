@@ -102,7 +102,7 @@ export default async (req) => {
     if (p === '/ich' && m === 'GET') {
       const k = await wer(req);
       const einrichtungOffen = !(await D.konten()).some(x => x.rolle === 'admin');
-      return json(k ? { angemeldet: true, rolle: k.rolle, name: k.name, email: k.email } : { angemeldet: false, einrichtungOffen });
+      return json(k ? { angemeldet: true, rolle: k.rolle, name: k.name, email: k.email, benutzer: k.benutzer || '' } : { angemeldet: false, einrichtungOffen });
     }
     if (p === '/einrichten' && m === 'POST') {
       const b = await body(req);
@@ -111,9 +111,11 @@ export default async (req) => {
       const ok = soll && soll.length >= 12 && b.code && crypto.timingSafeEqual(Buffer.from(sha(b.code)), Buffer.from(sha(soll)));
       if (!ok) { await D.fehlversuch('i:' + ip(req)); return json({ fehler: 'Der Einrichtungscode stimmt nicht.' }, 403); }
       const fehl = kennwortRegel(b.kennwort); if (fehl) return json({ fehler: fehl }, 400);
-      if (!emailOk(b.email) || !kurz(b.name, 80)) return json({ fehler: 'Bitte Name und E-Mail angeben.' }, 400);
-      const k = { id: id(9), rolle: 'admin', name: kurz(b.name, 80), email: b.email.toLowerCase().trim(), telefon: kurz(b.telefon, 40), hash: hashKennwort(b.kennwort), sitzungVersion: 1, aktiv: true, angelegt: jetzt() };
-      await D.kontoSpeichern(k); await D.protokoll(k.email, 'Erstes Verwaltungskonto angelegt');
+      const benutzer = String(b.benutzer || '').toLowerCase().trim();
+      if (!/^[a-z0-9äöüß._-]{3,40}$/.test(benutzer) && !emailOk(b.email)) return json({ fehler: 'Bitte einen Benutzernamen (mind. 3 Zeichen) oder eine E-Mail-Adresse angeben.' }, 400);
+      if (b.email && !emailOk(b.email)) return json({ fehler: 'Die E-Mail-Adresse ist ungültig.' }, 400);
+      const k = { id: id(9), rolle: 'admin', name: kurz(b.name, 80) || b.benutzer || 'Verwaltung', benutzer: benutzer || undefined, email: b.email ? b.email.toLowerCase().trim() : '', telefon: kurz(b.telefon, 40), hash: hashKennwort(b.kennwort), sitzungVersion: 1, aktiv: true, angelegt: jetzt() };
+      await D.kontoSpeichern(k); await D.protokoll(k.benutzer || k.email, 'Erstes Verwaltungskonto angelegt');
       return json({ ok: true, rolle: 'admin' }, 200, { 'set-cookie': sitzungsCookie(k) });
     }
     if (p === '/einladung' && m === 'POST') {
@@ -131,8 +133,8 @@ export default async (req) => {
       const b = await body(req);
       if (await D.gesperrt('pw:' + ip(req))) return json({ ok: true });
       await D.fehlversuch('pw:' + ip(req));
-      const k = await D.kontoNachMail(b.email || '');
-      if (k && k.hash) {
+      const k = await D.kontoNachKennung(b.email || '');
+      if (k && k.hash && k.email) {
         const t = signieren({ k: k.id, v: k.sitzungVersion || 1, z: 'neu', exp: Date.now() + 3600e3 });
         await sende({ an: k.email, betreff: 'Neues Kennwort für Anam Cara', html: rahmen(absatz(`Hallo ${k.name},`) + absatz('über den folgenden Knopf kannst du ein neues Kennwort festlegen. Der Link gilt eine Stunde.') + knopf(`${seite}/anmelden?neu=${encodeURIComponent(t)}`, 'Neues Kennwort festlegen') + absatz('Wenn du das nicht angefordert hast, ignoriere diese Nachricht einfach.'), seite), text: `${seite}/anmelden?neu=${t}` });
       }
@@ -257,7 +259,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
 
   if (p === '/status' && m === 'GET') {
     const i = await D.inhalt();
-    return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { name: admin.name, email: admin.email, telefon: admin.telefon || '' }, felder: FELDER });
+    return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
   if (p === '/uebersicht' && m === 'GET') {
     const [an, ko, kt, st, rs, stat] = await Promise.all([D.anfragen(), D.konten(), D.kontakte(), D.stimmen(), D.retreats(), D.statistik(30)]);
@@ -422,6 +424,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
   }
   if (p === '/ich' && m === 'POST') {
     admin.name = kurz(b.name, 80) || admin.name; admin.telefon = kurz(b.telefon, 40);
+    if (typeof b.email === 'string') { if (b.email && !emailOk(b.email)) return json({ fehler: 'Die E-Mail-Adresse ist ungültig.' }, 400); const andere = b.email && (await D.kontoNachMail(b.email)); if (andere && andere.id !== admin.id) return json({ fehler: 'Diese E-Mail-Adresse gehört schon zu einem anderen Konto.' }, 409); admin.email = b.email.toLowerCase().trim(); }
     await D.kontoSpeichern(admin); return json({ ok: true });
   }
 

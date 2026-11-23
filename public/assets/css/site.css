@@ -487,3 +487,16 @@ body.mit-landschaft{background:var(--nacht)}
 .ritual__flammen{position:absolute;left:0;right:0;top:-160px;margin:0 auto;width:100%;max-width:640px;height:calc(100% + 160px);pointer-events:none;z-index:2}
 .ritual.brennt .ritual__schein{opacity:calc(var(--flacker,1) * .62)}
 .ritual[data-phase="ein"] .ritual__schein,.ritual[data-phase="halt"] .ritual__schein{opacity:var(--flacker,1)}
+
+/* Hüter-Zeichen links unten: Zugang zur Verwaltung */
+.hueter{position:fixed;left:20px;bottom:20px;z-index:25;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--glut);background:rgba(18,28,23,.82);border:1px solid rgba(232,160,102,.4);text-decoration:none;transition:border-color .5s,box-shadow .5s,color .5s}
+.hueter::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid rgba(232,160,102,.18)}
+.hueter svg{transition:transform 1.6s cubic-bezier(.22,.61,.36,1)}
+.hueter:hover,.hueter:focus-visible{color:#FFD9A8;border-color:var(--glut);box-shadow:0 0 22px rgba(232,160,102,.35)}
+.hueter:hover svg,.hueter:focus-visible svg{transform:rotate(240deg)}
+@media print{.hueter{display:none}}
+
+/* Mobil stabil: nichts darf seitlich überstehen */
+html,body{overflow-x:clip;max-width:100%}
+@supports not (overflow:clip){body{overflow-x:hidden}}
+main,.fuss{overflow-x:clip}

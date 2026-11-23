@@ -5,14 +5,14 @@
   const en = q.get('lang') === 'en';
   const box = $('#ansicht');
   const T = en ? {
-    titel: 'Sign in', mail: 'Email', pw: 'Password', los: 'Continue', vergessen: 'Forgot your password?',
+    titel: 'Sign in', mail: 'Email or user name', pw: 'Password', los: 'Continue', vergessen: 'Forgot your password?',
     code: 'We have sent you a one-time code', codeText: w => w === 'sms' ? 'Please enter the 6-digit code from the text message.' : 'Please enter the 6-digit code from the email we have just sent you.',
     codeFeld: 'Code', bestaetigen: 'Sign in', zurueck: 'Back', neuTitel: 'Set a new password', neuPw: 'New password (at least 10 characters)', speichern: 'Save',
     vergTitel: 'Reset password', vergText: 'Enter your email address. If an account exists, you will receive a link.', senden: 'Send link',
     vergOk: 'If an account exists for this address, a link is on its way.', einlTitel: 'Welcome', einlText: n => `Hello ${n}, please choose a password for your personal area.`,
     ds: 'I have read the privacy policy.', fehlerPw: 'At least 10 characters, please.',
   } : {
-    titel: 'Anmelden', mail: 'E-Mail-Adresse', pw: 'Kennwort', los: 'Weiter', vergessen: 'Kennwort vergessen?',
+    titel: 'Anmelden', mail: 'E-Mail oder Benutzername', pw: 'Kennwort', los: 'Weiter', vergessen: 'Kennwort vergessen?',
     code: 'Wir haben dir einen Anmeldecode geschickt', codeText: w => w === 'sms' ? 'Bitte gib den sechsstelligen Code aus der SMS ein.' : 'Bitte gib den sechsstelligen Code aus der E-Mail ein, die wir dir gerade geschickt haben.',
     codeFeld: 'Code', bestaetigen: 'Anmelden', zurueck: 'Zurück', neuTitel: 'Neues Kennwort festlegen', neuPw: 'Neues Kennwort (mindestens 10 Zeichen)', speichern: 'Speichern',
     vergTitel: 'Kennwort zurücksetzen', vergText: 'Gib deine E-Mail-Adresse ein. Wenn es ein Konto dazu gibt, bekommst du einen Link.', senden: 'Link schicken',
@@ -20,6 +20,8 @@
     ds: 'Ich habe die Datenschutzerklärung gelesen.', fehlerPw: 'Bitte mindestens 10 Zeichen.',
   };
   if (en) { document.documentElement.lang = 'en'; $('#a-titel').textContent = 'Welcome back'; $('#a-zitat').textContent = 'Participants find travel information, packing list and documents here. Sabine and Nina manage the whole website from here.'; }
+  const verwaltung = q.get('bereich') === 'verwaltung';
+  if (verwaltung) { $('#a-vorzeile').textContent = en ? 'Management' : 'Verwaltung'; $('#a-titel').textContent = en ? 'Management' : 'Verwaltung'; $('#a-zitat').textContent = en ? 'Texts, journeys, pictures, enquiries and newsletter of anam-cara.at.' : 'Texte, Reisen, Bilder, Anfragen und Newsletter von Anam Cara an einem Ort.'; }
   const ziel = rolle => { const z = q.get('zurueck'); location.href = z && z.startsWith('/') && !z.startsWith('//') ? z : (rolle === 'admin' ? '/verwaltung' : '/mein-bereich'); };
 
   function formular(html, beiSenden) {
@@ -36,7 +38,7 @@
 
   function login() {
     formular(`<h2 class="h2">${T.titel}</h2><form novalidate>
-      <div class="feld"><label for="m">${T.mail}</label><input id="m" name="email" type="email" autocomplete="username" required></div>
+      <div class="feld"><label for="m">${T.mail}</label><input id="m" name="email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
       <div class="feld"><label for="p">${T.pw}</label><input id="p" name="kennwort" type="password" autocomplete="current-password" required></div>
       <button class="knopf" type="submit">${T.los}</button></form>
       <p><a class="textlink" href="#" id="verg">${T.vergessen}</a></p>`, async d => {
@@ -78,8 +80,9 @@
     $('#a-zitat').textContent = 'Hier wird das erste Verwaltungskonto angelegt. Den Einrichtungscode hat Jürgen (webseitefix.at) im Hosting hinterlegt.';
     formular(`<h2 class="h2">Verwaltung einrichten</h2><form novalidate>
       <div class="feld"><label for="c">Einrichtungscode</label><input id="c" name="code" required autocomplete="off"></div>
-      <div class="feld"><label for="n">Dein Name</label><input id="n" name="name" required autocomplete="name"></div>
-      <div class="feld"><label for="m">E-Mail-Adresse</label><input id="m" name="email" type="email" required autocomplete="username"></div>
+      <div class="feld"><label for="b">Benutzername</label><input id="b" name="benutzer" value="${esc(q.get('benutzer') || '')}" required autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+      <div class="feld"><label for="n">Name <span class="feld__hinweis">freiwillig, wird in der Verwaltung angezeigt</span></label><input id="n" name="name" autocomplete="name"></div>
+      <div class="feld"><label for="m">E-Mail-Adresse <span class="feld__hinweis">empfohlen, für Anmeldecode und „Kennwort vergessen“</span></label><input id="m" name="email" type="email"></div>
       <div class="feld"><label for="t">Mobilnummer für den Anmeldecode per SMS <span class="feld__hinweis">freiwillig</span></label><input id="t" name="telefon" type="tel" placeholder="+43 …"></div>
       <div class="feld"><label for="p">Kennwort (mindestens 10 Zeichen)</label><input id="p" name="kennwort" type="password" autocomplete="new-password" minlength="10" required></div>
       <button class="knopf" type="submit">Konto anlegen</button></form>`, async d => {
@@ -110,7 +113,7 @@
     try {
       const ich = await api('/ich', undefined, { still: true });
       if (ich.angemeldet) return ziel(ich.rolle);
-      if (ich.einrichtungOffen && q.has('einrichten')) return einrichten();
+      if (ich.einrichtungOffen && (q.has('einrichten') || verwaltung)) return einrichten();
       if (ich.einrichtungOffen) { login(); box.insertAdjacentHTML('beforeend', '<p class="klein">Noch kein Verwaltungskonto? <a href="/anmelden?einrichten">Ersteinrichtung</a></p>'); return; }
     } catch {}
     login();

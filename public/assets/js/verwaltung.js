@@ -416,6 +416,8 @@
         <div class="leiste"><button class="knopf">Einstellungen speichern</button></div></form>
       <div class="raster2"><form class="karte" id="ich" novalidate><h2 class="h3">Mein Konto</h2>
         <div class="feld"><label for="i-n">Name</label><input id="i-n" name="name" value="${esc(S.status.ich.name)}"></div>
+        ${S.status.ich.benutzer ? `<p class="klein">Benutzername: <strong>${esc(S.status.ich.benutzer)}</strong></p>` : ''}
+        <div class="feld"><label for="i-m">E-Mail-Adresse <span class="feld__hinweis">für den Anmeldecode und „Kennwort vergessen“</span></label><input id="i-m" name="email" type="email" value="${esc(S.status.ich.email)}"></div>
         <div class="feld"><label for="i-t">Mobilnummer für den Anmeldecode per SMS</label><input id="i-t" name="telefon" value="${esc(S.status.ich.telefon)}" placeholder="+43 …"></div>
         <button class="knopf knopf--leise">Speichern</button></form>
         <form class="karte" id="kw" novalidate><h2 class="h3">Kennwort ändern</h2>
@@ -435,7 +437,7 @@
       $$('[data-e]').forEach(x => ein[x.dataset.e] = x.value); $$('[data-soc]').forEach(x => ein.social[x.dataset.soc] = x.value); $$('[data-fr]').forEach(x => ein.fristen[x.dataset.fr] = x.value);
       await sicher(() => api('/v/inhalt', { einstellungen: ein }), 'Gespeichert. Impressum und Datenschutz sind aktualisiert.'); S.ungespeichert = false;
     };
-    $('#ich').onsubmit = async e => { e.preventDefault(); await sicher(() => api('/v/ich', { name: e.target.name.value, telefon: e.target.telefon.value }), 'Gespeichert.'); S.status.ich.telefon = e.target.telefon.value; };
+    $('#ich').onsubmit = async e => { e.preventDefault(); await sicher(() => api('/v/ich', { name: e.target.name.value, email: e.target.email.value, telefon: e.target.telefon.value }), 'Gespeichert.'); S.status.ich.telefon = e.target.telefon.value; S.status.ich.email = e.target.email.value; };
     $('#kw').onsubmit = async e => { e.preventDefault(); await sicher(() => api('/konto/kennwort', { alt: e.target.alt.value, neu: e.target.neu.value }), 'Kennwort geändert.'); e.target.reset(); };
   };
 
@@ -467,7 +469,6 @@
       if (!ich.angemeldet) return location.href = '/anmelden?zurueck=/verwaltung';
       if (ich.rolle !== 'admin') return location.href = '/mein-bereich';
       S.status = await api('/v/status');
-      const konten = await api('/v/konten'); S.status.ich.id = konten.find(k => k.email === ich.email)?.id;
       $('#wer').textContent = ich.name;
       $('#kopf-aktionen').innerHTML = '<a class="knopf knopf--leise knopf--klein" href="/mein-bereich">Ansicht Teilnehmerin</a><button class="knopf knopf--leise knopf--klein" id="ab">Abmelden</button>';
       $('#ab').onclick = abmelden;
