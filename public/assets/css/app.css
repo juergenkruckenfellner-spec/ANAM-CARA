@@ -40,7 +40,7 @@ body.app{background:var(--sand)}
 
 /* Anmeldung */
 .anmeldung{min-height:calc(100vh - 70px);display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr)}
-.anmeldung__bild{background:var(--gruen);color:var(--sand);padding:clamp(32px,6vw,88px);display:flex;flex-direction:column;justify-content:flex-end}
+.anmeldung__bild{background:var(--nacht) var(--korn);color:var(--sand);padding:clamp(32px,6vw,88px);display:flex;flex-direction:column;justify-content:flex-end}
 .anmeldung__bild .h1{color:var(--sand)}
 .anmeldung__bild .zitat{font:italic 500 1.5rem/1.35 var(--anzeige);max-width:22em;opacity:.9}
 .anmeldung__form{padding:clamp(32px,6vw,88px);display:flex;align-items:center}
