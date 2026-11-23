@@ -108,8 +108,10 @@ export default async (req) => {
       const b = await body(req);
       if ((await D.konten()).some(x => x.rolle === 'admin')) return json({ fehler: 'Die Einrichtung ist bereits abgeschlossen.' }, 403);
       const soll = env('EINRICHTUNGS_CODE');
-      const ok = soll && soll.length >= 12 && b.code && crypto.timingSafeEqual(Buffer.from(sha(b.code)), Buffer.from(sha(soll)));
-      if (!ok) { await D.fehlversuch('i:' + ip(req)); return json({ fehler: 'Der Einrichtungscode stimmt nicht.' }, 403); }
+      if (!soll || soll.length < 12) return json({ fehler: 'Im Hosting ist noch kein Einrichtungscode hinterlegt. In Netlify die Umgebungsvariable EINRICHTUNGS_CODE anlegen und danach neu veröffentlichen (Deploys → Trigger deploy).' }, 503);
+      if (!env('SITZUNG_GEHEIMNIS') || env('SITZUNG_GEHEIMNIS').length < 32) return json({ fehler: 'Im Hosting fehlt noch die Umgebungsvariable SITZUNG_GEHEIMNIS (mind. 32 Zeichen). Bitte anlegen und neu veröffentlichen.' }, 503);
+      const ok = soll && soll.length >= 12 && b.code && crypto.timingSafeEqual(Buffer.from(sha(String(b.code).trim())), Buffer.from(sha(soll.trim())));
+      if (!ok) { await D.fehlversuch('i:' + ip(req)); return json({ fehler: 'Der Einrichtungscode stimmt nicht. Bitte ohne Leerzeichen davor oder danach eingeben.' }, 403); }
       const fehl = kennwortRegel(b.kennwort); if (fehl) return json({ fehler: fehl }, 400);
       const benutzer = String(b.benutzer || '').toLowerCase().trim();
       if (!/^[a-z0-9äöüß._-]{3,40}$/.test(benutzer) && !emailOk(b.email)) return json({ fehler: 'Bitte einen Benutzernamen (mind. 3 Zeichen) oder eine E-Mail-Adresse angeben.' }, 400);
