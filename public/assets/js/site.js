@@ -171,57 +171,98 @@
       };
       requestAnimationFrame(schritt);
     }
-    // Meditative Klänge, live im Browser erzeugt (keine Datei, kein fremder Server):
-    // tiefer Bordun in D, weiche Flächen, Klangschale zu jedem Einatmen, leise Harfentöne in D-Pentatonik.
+    // Irische Klänge, im Browser erzeugt (keine Datei, kein fremder Server):
+    // gezupfte keltische Harfe (physikalisches Saitenmodell), Low Whistle mit Atemgeräusch und Verzierungen,
+    // leiser Dudelsack-Bordun in D und Wind. Die Weise ist eine eigene, langsame Air im irischen Stil.
     const klang = (() => {
-      let ac = null, master = null, hall = null, laufend = false, stumm = false, timer = null;
-      const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+      let ac = null, master = null, hall = null, laufend = false, stumm = false, quellen = [], timer = [];
+      const hz = n => 440 * Math.pow(2, (n - 69) / 12), saiten = {};
+      function saite(n) { // Karplus-Strong: Rauschimpuls läuft gedämpft durch eine Verzögerung = gezupfte Saite
+        if (saiten[n]) return saiten[n];
+        const sr = ac.sampleRate, len = Math.floor(sr * 4.5), buf = ac.createBuffer(1, len, sr), d = buf.getChannelData(0);
+        const N = Math.max(2, Math.round(sr / hz(n))), daempf = n < 55 ? .9965 : n < 70 ? .9975 : .998;
+        let vor = 0; for (let i = 0; i < N; i++) { const x = Math.random() * 2 - 1; vor = vor * .55 + x * .45; d[i] = vor; }
+        for (let i = N; i < len; i++) d[i] = daempf * .5 * (d[i - N] + d[i - N - 1 < 0 ? 0 : i - N - 1]);
+        let m = 0; for (let i = 0; i < len; i++) m = Math.max(m, Math.abs(d[i])); for (let i = 0; i < len; i++) d[i] /= m || 1;
+        return (saiten[n] = buf);
+      }
+      function zupfen(n, t, laut) {
+        const q = ac.createBufferSource(), g = ac.createGain(), f = ac.createBiquadFilter();
+        q.buffer = saite(n); f.type = 'lowpass'; f.frequency.value = 2600; g.gain.value = laut;
+        q.connect(f); f.connect(g); g.connect(hall); g.connect(master); q.start(t); quellen.push(q);
+      }
       function hallBauen() {
-        const len = ac.sampleRate * 4.5, buf = ac.createBuffer(2, len, ac.sampleRate);
-        for (let ch = 0; ch < 2; ch++) { const d0 = buf.getChannelData(ch); for (let i = 0; i < len; i++) d0[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+        const sr = ac.sampleRate, len = sr * 3.8, buf = ac.createBuffer(2, len, sr);
+        for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); let lp = 0;
+          for (let i = 0; i < len; i++) { lp = lp * .6 + (Math.random() * 2 - 1) * .4; d[i] = lp * Math.pow(1 - i / len, 3) * (i < sr * .02 ? i / (sr * .02) : 1); } }
         const c = ac.createConvolver(); c.buffer = buf; return c;
       }
-      function ton(freq, typ, start, dauer, laut, ziel) {
-        const o = ac.createOscillator(), g = ac.createGain(); o.type = typ; o.frequency.value = freq;
-        g.gain.setValueAtTime(0.0001, start); g.gain.exponentialRampToValueAtTime(laut, start + Math.min(.02, dauer / 4));
-        g.gain.exponentialRampToValueAtTime(0.0001, start + dauer); o.connect(g); g.connect(ziel); o.start(start); o.stop(start + dauer + .1);
+      // Weise in D, 3/4, [Ton, Schläge, Verzierung]
+      const WEISE = [[74,2,1],[76,1],[78,2,1],[76,1],[74,1],[71,1],[69,1],[71,3,1],
+        [74,2],[76,1],[78,1],[81,1],[78,1],[76,2,1],[74,1],[76,3],
+        [81,2,1],[83,1],[81,1],[78,1],[76,1],[74,2],[76,1],[78,3,1],
+        [76,1],[74,1],[71,1],[69,2],[71,1],[74,3,1],[74,3]];
+      const AKKORDE = [[50,57,62,66],[50,57,62,66],[47,54,59,62],[43,50,55,59],[50,57,62,66],[50,57,62,66],[45,52,57,61],[45,52,57,61],
+        [50,57,62,66],[50,57,62,66],[43,50,55,59],[50,57,62,66],[52,59,64,67],[45,52,57,61],[50,57,62,66],[38,50,57,62]];
+      function whistle(start, schlag) {
+        const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+        const re = new Float32Array([0, 1, .18, .06, .025, .01]), im = new Float32Array(6);
+        o.setPeriodicWave(ac.createPeriodicWave(re, im)); f.type = 'lowpass'; f.frequency.value = 3200;
+        const vib = ac.createOscillator(), vibG = ac.createGain(); vib.frequency.value = 5.2; vibG.gain.value = 0; vib.connect(vibG); vibG.connect(o.detune);
+        // Atem: Rauschen, um den Ton herum gefiltert
+        const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+        const atem = ac.createBufferSource(); atem.buffer = nb; atem.loop = true; const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 3;
+        const ag = ac.createGain(); atem.connect(bp); bp.connect(ag); ag.connect(f);
+        o.connect(g); g.connect(f); f.connect(hall); f.connect(master);
+        let t = start; g.gain.setValueAtTime(0, t); ag.gain.setValueAtTime(0, t);
+        WEISE.forEach(([n, b, verz], i) => {
+          const dauer = b * schlag, fr = hz(n);
+          if (verz && i > 0) { o.frequency.setValueAtTime(hz(n + (n % 12 === 11 || n % 12 === 4 ? 1 : 2)) , t); t += .045; } // Schnitt (cut) wie bei irischen Flöten
+          o.frequency.setTargetAtTime(fr, t, .012); bp.frequency.setValueAtTime(fr * 2, t);
+          g.gain.setTargetAtTime(.075, t, i === 0 ? .08 : .02); ag.gain.setTargetAtTime(.012, t, .05);
+          if (b >= 2) { vibG.gain.setValueAtTime(0, t + .35); vibG.gain.linearRampToValueAtTime(14, t + dauer * .9); }
+          vibG.gain.setValueAtTime(0, t + dauer - .02);
+          if (WEISE[i + 1] && WEISE[i + 1][0] === n) { g.gain.setTargetAtTime(.03, t + dauer - .08, .015); } // kurzes Absetzen bei Tonwiederholung
+          t += dauer - (verz && i > 0 ? .045 : 0);
+        });
+        g.gain.setTargetAtTime(0, t - .4, .5); ag.gain.setTargetAtTime(0, t - .4, .4);
+        [o, vib, atem].forEach(x => { x.start(start); x.stop(t + 3); quellen.push(x); });
+        return t;
       }
-      function schale() { if (!laufend) return; const t = ac.currentTime + .05, f = hz(62);
-        [[1, .08], [2.76, .035], [5.4, .015], [8.9, .006]].forEach(([m, l]) => ton(f * m, 'sine', t, 7.5, l, hall)); }
-      function harfe() { if (!laufend) return; const noten = [62, 64, 67, 69, 71, 74, 76, 79]; const n = noten[Math.floor(Math.random() * noten.length)];
-        const t = ac.currentTime + .05; ton(hz(n), 'triangle', t, 3.2, .03, hall); ton(hz(n) * 2, 'sine', t, 1.6, .008, hall);
-        timer = setTimeout(harfe, 2200 + Math.random() * 3800); }
       function start() {
         if (laufend) return; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-        ac = ac || new AC(); ac.resume?.(); laufend = true;
-        master = ac.createGain(); master.gain.value = 0.0001; master.connect(ac.destination);
-        hall = ac.createGain(); const conv = hallBauen(); hall.connect(conv); conv.connect(master); hall.connect(master);
-        const tp = ac.createBiquadFilter(); tp.type = 'lowpass'; tp.frequency.value = 600; tp.Q.value = .7; tp.connect(master); tp.connect(conv);
-        const lfo = ac.createOscillator(), lfoG = ac.createGain(); lfo.frequency.value = .05; lfoG.gain.value = 260; lfo.connect(lfoG); lfoG.connect(tp.frequency); lfo.start();
-        // Bordun D2/A2 mit leichter Verstimmung + Fläche Dm(add9)
-        [[38, 0], [38, 4], [45, -3], [50, 2], [53, -2], [57, 3], [64, -4]].forEach(([n, cent], i) => {
-          const o = ac.createOscillator(), g = ac.createGain(), sch = ac.createOscillator(), schG = ac.createGain();
-          o.type = i < 3 ? 'sine' : 'triangle'; o.frequency.value = hz(n); o.detune.value = cent;
-          g.gain.value = i < 3 ? .11 : .028; sch.frequency.value = .03 + i * .017; schG.gain.value = g.gain.value * .6; sch.connect(schG); schG.connect(g.gain); sch.start();
-          o.connect(g); g.connect(tp); o.start(); klang.quellen.push(o, sch);
-        });
-        // leiser Wind aus gefiltertem Rauschen
+        ac = ac || new AC(); ac.resume?.(); laufend = true; quellen = [];
+        master = ac.createGain(); master.gain.value = stumm ? 0.0001 : 1; master.connect(ac.destination);
+        const conv = hallBauen(), hg = ac.createGain(); hg.gain.value = .55; hall = ac.createGain(); hall.connect(conv); conv.connect(hg); hg.connect(master);
+        // Bordun wie bei der Uilleann Pipe: D3 und D2, weich gefiltert, langsam einschwellend
+        const tp = ac.createBiquadFilter(); tp.type = 'lowpass'; tp.frequency.value = 520; const bg = ac.createGain();
+        bg.gain.setValueAtTime(0, ac.currentTime); bg.gain.linearRampToValueAtTime(.022, ac.currentTime + 5);
+        tp.connect(bg); bg.connect(master); bg.connect(hall);
+        [[50, 0, .6], [38, 3, 1], [57, -2, .25]].forEach(([n, c, l]) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sawtooth'; o.frequency.value = hz(n); o.detune.value = c; g.gain.value = l; o.connect(g); g.connect(tp); o.start(); quellen.push(o); });
+        // leiser Wind
         const nb = ac.createBuffer(1, ac.sampleRate * 3, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-        const nq = ac.createBufferSource(); nq.buffer = nb; nq.loop = true; const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = .6;
-        const ng = ac.createGain(); ng.gain.value = .018; nq.connect(bp); bp.connect(ng); ng.connect(master); nq.start(); klang.quellen.push(nq);
-        master.gain.exponentialRampToValueAtTime(stumm ? 0.0001 : .9, ac.currentTime + 3);
-        timer = setTimeout(harfe, 3000);
+        const nq = ac.createBufferSource(); nq.buffer = nb; nq.loop = true; const wf = ac.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 500;
+        const ng = ac.createGain(); ng.gain.value = .012; nq.connect(wf); wf.connect(ng); ng.connect(master); nq.start(); quellen.push(nq);
+        // Harfe: Akkorde werden wie auf der Harfe von unten nach oben gerollt, dazu ruhige Achtel
+        const schlag = 60 / 76, t0 = ac.currentTime + .15;
+        AKKORDE.forEach((ak, takt) => {
+          const tt = t0 + 1.2 + takt * 3 * schlag;
+          ak.forEach((n, k) => zupfen(n, tt + k * .055 + Math.random() * .01, k === 0 ? .32 : .2));
+          zupfen(ak[2] + 12, tt + schlag * 1.5, .1); zupfen(ak[3], tt + schlag * 2, .12);
+        });
+        zupfen(38, t0, .35); zupfen(50, t0 + .06, .25); zupfen(57, t0 + .12, .2); zupfen(62, t0 + .18, .2);
+        whistle(t0 + 1.2, schlag);
       }
       function stopp(sanft = 4) {
-        if (!laufend) return; laufend = false; clearTimeout(timer);
+        if (!laufend) return; laufend = false; timer.forEach(clearTimeout);
         const t = ac.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(0.0001, t + sanft);
-        const q = klang.quellen.splice(0); setTimeout(() => q.forEach(o => { try { o.stop(); } catch {} }), sanft * 1000 + 200);
+        const q = quellen.splice(0); setTimeout(() => q.forEach(o => { try { o.stop(); } catch {} }), sanft * 1000 + 200);
       }
       function stummSchalten(an) {
         stumm = an; if (!ac || !laufend) return; const t = ac.currentTime; master.gain.cancelScheduledValues(t);
-        master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(an ? .0001 : .9, t + 1.2);
+        master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(an ? .0001 : 1, t + 1.2);
       }
-      return { quellen: [], start, stopp, schale, stummSchalten, get stumm() { return stumm; } };
+      return { start, stopp, schale() {}, stummSchalten, get stumm() { return stumm; } };
     })();
     const tonKnopf = r.querySelector('[data-klang]');
     const tonText = () => { tonKnopf.setAttribute('aria-pressed', String(!klang.stumm)); tonKnopf.querySelector('span').textContent = klang.stumm ? (en ? 'Sound on' : 'Klang an') : (en ? 'Sound off' : 'Klang aus'); };
