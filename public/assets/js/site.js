@@ -135,8 +135,44 @@
       rauch(funken.parentElement.querySelector('.ritual__dampf') || (() => { const c = d.createElement('canvas'); c.className = 'ritual__dampf'; c.setAttribute('aria-hidden', 'true'); funken.after(c); return c; })(),
         { anzahl: 16, alpha: .6, quelle: (bb, hh) => ({ x: bb / 2 + (Math.random() - .5) * 20, y: hh * .58 }), hoehe: .6, groesse: [30, 110], tempo: [.35, .6], skala: 1 });
     }
+    // Realistisches Feuer: viele kleine Glutteilchen, additiv gemischt (heller Kern, orange Mitte, rote Spitzen)
+    let feuerAn = false;
+    function feuerStarten() {
+      if (feuerAn || ruhig.matches) return; feuerAn = true; r.classList.add('echtes-feuer');
+      const svg = r.querySelector('.ritual__kreis');
+      const c = d.createElement('canvas'); c.className = 'ritual__flammen'; c.setAttribute('aria-hidden', 'true'); svg.after(c);
+      const x = c.getContext('2d'); let b, h, dpr = Math.min(2, devicePixelRatio || 1);
+      const mass = () => { const q = c.getBoundingClientRect(); b = c.width = q.width * dpr; h = c.height = q.height * dpr; }; mass(); addEventListener('resize', mass);
+      const farbe = (r1, g1, b1) => { const k = d.createElement('canvas'); k.width = k.height = 64; const g = k.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, `rgba(${r1},${g1},${b1},.9)`); gr.addColorStop(.4, `rgba(${r1},${g1},${b1},.35)`); gr.addColorStop(1, `rgba(${r1},${g1},${b1},0)`); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return k; };
+      const stufen = [farbe(255, 236, 190), farbe(255, 180, 80), farbe(245, 128, 40), farbe(205, 72, 22), farbe(120, 36, 14)];
+      const teile = []; let t = 0;
+      const ort = () => { const sv = svg.getBoundingClientRect(), cv = c.getBoundingClientRect(); return { x: (sv.left - cv.left + sv.width * .5) * dpr, y: (sv.top - cv.top + sv.height * .545) * dpr, w: sv.width * dpr }; };
+      const schritt = () => {
+        t++; const o = ort(); const breite = o.w * .04, gr0 = o.w * .02;
+        x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, b, h);
+        for (let i = 0; i < 7; i++) teile.push({ x: o.x + (Math.random() - .5) * breite * 2, y: o.y - Math.random() * 4, vx: (Math.random() - .5) * .5, vy: -(1.6 + Math.random() * 2.2) * dpr, t: 0, max: 30 + Math.random() * 34, s: gr0 * (.6 + Math.random() * .7) });
+        x.globalCompositeOperation = 'lighter';
+        const wind = Math.sin(t * .021) * .25 + Math.sin(t * .067) * .15;
+        for (let i = teile.length - 1; i >= 0; i--) {
+          const p = teile[i]; p.t++;
+          const lf = p.t / p.max; if (lf >= 1) { teile.splice(i, 1); continue; }
+          p.vx += (o.x - p.x) * .006 * (1 + lf * 2) + wind * .06; p.x += p.vx; p.y += p.vy; p.vy *= .985;
+          const s = p.s * (1 - lf * .75);
+          const st = stufen[lf < .08 ? 0 : lf < .3 ? 1 : lf < .55 ? 2 : lf < .8 ? 3 : 4];
+          x.globalAlpha = (1 - lf) * (lf < .08 ? .3 : .42);
+          x.drawImage(st, p.x - s * .8, p.y - s * 1.9, s * 1.6, s * 3.2);
+        }
+        // Glut in der Schale
+        x.globalCompositeOperation = 'lighter'; x.globalAlpha = .35 + Math.random() * .12;
+        x.drawImage(stufen[2], o.x - breite * 1.6, o.y - breite * .4, breite * 3.2, breite * .9);
+        r.style.setProperty('--flacker', (.75 + Math.random() * .25).toFixed(2));
+        requestAnimationFrame(schritt);
+      };
+      requestAnimationFrame(schritt);
+    }
     knopf.addEventListener('click', async () => {
-      knopf.disabled = true; ende.hidden = true; r.classList.add('brennt'); funkenStarten();
+      knopf.disabled = true; ende.hidden = true; r.classList.add('brennt'); feuerStarten(); funkenStarten();
       await warte(1200);
       for (let n = 1; n <= 3; n++) {
         r.dataset.phase = 'ein'; anz.textContent = `${T.ein} · ${T.zahl(n)}`; await warte(4000);
