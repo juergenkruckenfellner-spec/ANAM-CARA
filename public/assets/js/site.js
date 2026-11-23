@@ -171,16 +171,81 @@
       };
       requestAnimationFrame(schritt);
     }
-    knopf.addEventListener('click', async () => {
+    // Meditative Klänge, live im Browser erzeugt (keine Datei, kein fremder Server):
+    // tiefer Bordun in D, weiche Flächen, Klangschale zu jedem Einatmen, leise Harfentöne in D-Pentatonik.
+    const klang = (() => {
+      let ac = null, master = null, hall = null, laufend = false, stumm = false, timer = null;
+      const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+      function hallBauen() {
+        const len = ac.sampleRate * 4.5, buf = ac.createBuffer(2, len, ac.sampleRate);
+        for (let ch = 0; ch < 2; ch++) { const d0 = buf.getChannelData(ch); for (let i = 0; i < len; i++) d0[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+        const c = ac.createConvolver(); c.buffer = buf; return c;
+      }
+      function ton(freq, typ, start, dauer, laut, ziel) {
+        const o = ac.createOscillator(), g = ac.createGain(); o.type = typ; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, start); g.gain.exponentialRampToValueAtTime(laut, start + Math.min(.02, dauer / 4));
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dauer); o.connect(g); g.connect(ziel); o.start(start); o.stop(start + dauer + .1);
+      }
+      function schale() { if (!laufend) return; const t = ac.currentTime + .05, f = hz(62);
+        [[1, .08], [2.76, .035], [5.4, .015], [8.9, .006]].forEach(([m, l]) => ton(f * m, 'sine', t, 7.5, l, hall)); }
+      function harfe() { if (!laufend) return; const noten = [62, 64, 67, 69, 71, 74, 76, 79]; const n = noten[Math.floor(Math.random() * noten.length)];
+        const t = ac.currentTime + .05; ton(hz(n), 'triangle', t, 3.2, .03, hall); ton(hz(n) * 2, 'sine', t, 1.6, .008, hall);
+        timer = setTimeout(harfe, 2200 + Math.random() * 3800); }
+      function start() {
+        if (laufend) return; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        ac = ac || new AC(); ac.resume?.(); laufend = true;
+        master = ac.createGain(); master.gain.value = 0.0001; master.connect(ac.destination);
+        hall = ac.createGain(); const conv = hallBauen(); hall.connect(conv); conv.connect(master); hall.connect(master);
+        const tp = ac.createBiquadFilter(); tp.type = 'lowpass'; tp.frequency.value = 600; tp.Q.value = .7; tp.connect(master); tp.connect(conv);
+        const lfo = ac.createOscillator(), lfoG = ac.createGain(); lfo.frequency.value = .05; lfoG.gain.value = 260; lfo.connect(lfoG); lfoG.connect(tp.frequency); lfo.start();
+        // Bordun D2/A2 mit leichter Verstimmung + Fläche Dm(add9)
+        [[38, 0], [38, 4], [45, -3], [50, 2], [53, -2], [57, 3], [64, -4]].forEach(([n, cent], i) => {
+          const o = ac.createOscillator(), g = ac.createGain(), sch = ac.createOscillator(), schG = ac.createGain();
+          o.type = i < 3 ? 'sine' : 'triangle'; o.frequency.value = hz(n); o.detune.value = cent;
+          g.gain.value = i < 3 ? .11 : .028; sch.frequency.value = .03 + i * .017; schG.gain.value = g.gain.value * .6; sch.connect(schG); schG.connect(g.gain); sch.start();
+          o.connect(g); g.connect(tp); o.start(); klang.quellen.push(o, sch);
+        });
+        // leiser Wind aus gefiltertem Rauschen
+        const nb = ac.createBuffer(1, ac.sampleRate * 3, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+        const nq = ac.createBufferSource(); nq.buffer = nb; nq.loop = true; const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = .6;
+        const ng = ac.createGain(); ng.gain.value = .018; nq.connect(bp); bp.connect(ng); ng.connect(master); nq.start(); klang.quellen.push(nq);
+        master.gain.exponentialRampToValueAtTime(stumm ? 0.0001 : .9, ac.currentTime + 3);
+        timer = setTimeout(harfe, 3000);
+      }
+      function stopp(sanft = 4) {
+        if (!laufend) return; laufend = false; clearTimeout(timer);
+        const t = ac.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(0.0001, t + sanft);
+        const q = klang.quellen.splice(0); setTimeout(() => q.forEach(o => { try { o.stop(); } catch {} }), sanft * 1000 + 200);
+      }
+      function stummSchalten(an) {
+        stumm = an; if (!ac || !laufend) return; const t = ac.currentTime; master.gain.cancelScheduledValues(t);
+        master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(an ? .0001 : .9, t + 1.2);
+      }
+      return { quellen: [], start, stopp, schale, stummSchalten, get stumm() { return stumm; } };
+    })();
+    const tonKnopf = r.querySelector('[data-klang]');
+    const tonText = () => { tonKnopf.setAttribute('aria-pressed', String(!klang.stumm)); tonKnopf.querySelector('span').textContent = klang.stumm ? (en ? 'Sound on' : 'Klang an') : (en ? 'Sound off' : 'Klang aus'); };
+    tonKnopf?.addEventListener('click', () => { klang.stummSchalten(!klang.stumm); tonText(); });
+
+    let laeuft = false;
+    const ritualStarten = async () => {
+      if (laeuft) return; laeuft = true;
       knopf.disabled = true; ende.hidden = true; r.classList.add('brennt'); feuerStarten(); funkenStarten();
-      await warte(1200);
+      klang.start(); if (tonKnopf) { tonKnopf.hidden = false; tonText(); }
+      anz.textContent = en ? 'The fire is lit …' : 'Das Feuer brennt …';
+      await warte(2200);
       for (let n = 1; n <= 3; n++) {
-        r.dataset.phase = 'ein'; anz.textContent = `${T.ein} · ${T.zahl(n)}`; await warte(4000);
+        r.dataset.phase = 'ein'; anz.textContent = `${T.ein} · ${T.zahl(n)}`; klang.schale(); await warte(4000);
         r.dataset.phase = 'halt'; anz.textContent = T.halt; await warte(2000);
         r.dataset.phase = 'aus'; anz.textContent = T.aus; await warte(6000);
       }
       r.dataset.phase = ''; anz.textContent = ''; ende.hidden = false; knopf.textContent = T.neu; knopf.disabled = false;
-    });
+      klang.stopp(6); if (tonKnopf) setTimeout(() => { tonKnopf.hidden = true; }, 6000);
+      laeuft = false;
+    };
+    // Ein einziger Tipp genügt: pointerup reagiert sofort, click als Rückfall (Tastatur)
+    knopf.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse' || e.button === 0) ritualStarten(); });
+    knopf.addEventListener('click', ritualStarten);
   });
 
   // Anonyme Besuchszählung: ohne Cookie, ohne Kennung, ohne IP-Speicherung
