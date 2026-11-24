@@ -565,3 +565,14 @@ main,.fuss{overflow-x:clip}
 /* Bei „Bewegung reduzieren“ bleibt alles da, nur deutlich langsamer */
 @media (prefers-reduced-motion:reduce){.held__nebel::before{animation-duration:240s!important}.held__nebel--b,.land__schimmer{animation-duration:40s!important}.land__strahl{animation-duration:60s!important}}
 @media print{.held__rauch,.held__nebel,.land__himmel{display:none}}
+
+/* Ablauf: die fünf Aquarell-Monde aus dem Logo */
+.weg__liste{--mg:58px}
+.weg__liste::before{left:calc(var(--mg) / 2);right:calc(var(--mg) / 2);top:calc(var(--mg) / 2);height:2px;background:linear-gradient(90deg,rgba(232,196,168,.85),rgba(214,150,108,.9) 50%,rgba(232,196,168,.85));opacity:.7;border-radius:2px}
+.logomond{position:relative;display:block;width:var(--mg);height:var(--mg);margin-bottom:26px}
+.logomond::before{content:"";position:absolute;inset:-8px;border-radius:50%;background:radial-gradient(closest-side,rgba(251,248,243,.95),rgba(251,248,243,.6) 70%,rgba(251,248,243,0))}
+.logomond img{position:relative;width:100%;height:100%;display:block;filter:drop-shadow(0 4px 10px rgba(164,80,26,.18))}
+.weg__liste li.wartet .logomond img{opacity:0;transform:scale(.55) rotate(-25deg)}
+.weg__liste li.ist-da .logomond img{opacity:1;transform:none;transition:opacity 1.4s .3s,transform 1.6s cubic-bezier(.22,.61,.36,1) .3s}
+.weg__liste li:hover .logomond img{transform:scale(1.08) rotate(6deg);transition:transform .8s cubic-bezier(.22,.61,.36,1)}
+@media (max-width:900px){.weg__liste{--mg:46px}.weg__liste::before{left:calc(var(--mg) / 2 - 1px);right:auto;top:0;bottom:0;width:2px;height:auto;background:linear-gradient(180deg,rgba(232,196,168,.85),rgba(214,150,108,.9) 50%,rgba(232,196,168,.85))}.weg__liste li{grid-template-columns:var(--mg) 1fr}.logomond{margin-bottom:0}}
