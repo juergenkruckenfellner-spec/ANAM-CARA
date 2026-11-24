@@ -508,3 +508,8 @@ body.mit-landschaft{background:var(--nacht)}
 html,body{overflow-x:clip;max-width:100%}
 @supports not (overflow:clip){body{overflow-x:hidden}}
 main,.fuss{overflow-x:clip}
+
+.werte__text{margin-top:14px;max-width:34ch;opacity:.85}
+.werte__wort{display:block;font-family:var(--anzeige,inherit);font-weight:500;font-size:1.15em;letter-spacing:.02em;margin-bottom:4px}
+.werte .fuerwen__liste p:first-letter{font-family:inherit;color:inherit;font-size:inherit}
+.werte .werte__wort{color:var(--orange-tief)}
