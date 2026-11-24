@@ -3,6 +3,7 @@ body.app{background:var(--sand)}
 .app-kopf{background:var(--sand-hell);border-bottom:1px solid var(--linie);position:sticky;top:0;z-index:30}
 .app-kopf__innen{max-width:1400px;margin:auto;padding:10px var(--rand);display:flex;align-items:center;gap:18px}
 .app-kopf .logo{font-size:1.4rem}
+.app-kopf .logo .monde{width:64px}
 .app-kopf__wer{font-size:.9rem;color:var(--tinte-weich)}
 .knopf--leise{background:transparent;color:var(--gruen);border-color:var(--linie)}
 .knopf--leise:hover{background:var(--sand-tief);color:var(--gruen-tief);border-color:var(--linie)}

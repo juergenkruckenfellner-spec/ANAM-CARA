@@ -75,6 +75,10 @@ p{margin:0 0 1em;max-width:66ch}
 .logo{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--mond);font:300 1.75rem/1 var(--anzeige);letter-spacing:.06em;margin-right:auto;min-height:44px}
 .logo:hover{color:var(--mond)}
 .logo .marke{color:var(--glut)}
+.logo .monde{width:92px;height:auto;flex:none;filter:drop-shadow(0 0 10px rgba(232,160,102,.18));transition:filter .6s ease}
+.logo:hover .monde{filter:drop-shadow(0 0 14px rgba(232,160,102,.42))}
+.logo__wort{font:300 1.32rem/1 var(--anzeige);letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+@media (max-width:420px){.logo .monde{width:58px}.logo__wort{font-size:1.08rem;letter-spacing:.16em}}
 .nav{display:flex;align-items:center;gap:clamp(16px,2.2vw,34px)}
 .nav a{text-decoration:none;font-size:.74rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;min-height:44px;display:inline-flex;align-items:center;color:var(--mond-weich)}
 .nav a:hover,.nav a[aria-current="page"]{color:var(--glut)}
@@ -294,9 +298,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--gruen);outline:2px so
 .fuss a:hover,.fuss a:focus-visible{color:var(--glut)}
 .zeichen{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
 .fuss__band{max-width:var(--breit);margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px 40px;flex-wrap:wrap}
-.fuss__marke{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--mond)}
+.fuss__marke{display:flex;flex-direction:column;align-items:center;gap:0;text-decoration:none;color:var(--mond);text-align:center}
+.fuss__marke .monde{width:132px;height:auto;margin-bottom:14px;opacity:.95}
+.fuss__unter{margin-top:8px;font:700 .56rem/1.3 var(--text);letter-spacing:.34em;padding-left:.34em;text-transform:uppercase;color:var(--glut)}
 .fuss__marke .marke{color:var(--glut);width:30px;height:30px}
-.fuss__name{font:300 1.7rem/1 var(--anzeige);letter-spacing:.05em}
+.fuss__name{font:300 1.55rem/1 var(--anzeige);letter-spacing:.16em;padding-left:.16em;text-transform:uppercase}
 .fuss__wege{display:flex;flex-wrap:wrap;gap:4px 6px}
 .fuss__wege a{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:76px;min-height:44px;padding:8px 6px;text-decoration:none;font:700 .62rem/1.2 var(--text);letter-spacing:.2em;text-transform:uppercase;color:var(--mond-weich);transition:color .4s}
 .fuss__wege .zeichen{width:26px;height:26px;color:var(--glut);opacity:.75;transition:transform .7s cubic-bezier(.22,.61,.36,1),opacity .4s,filter .4s}
