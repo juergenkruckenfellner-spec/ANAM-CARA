@@ -4,7 +4,7 @@ import { SICHERHEIT, json, esc, id, sha, jetzt, emailOk, kurz, herkunftOk, seite
 import { brauche, anmelden, codeBestaetigen, sitzungsCookie, abmeldeCookie, neueEinladung, wer } from '../../lib/auth.mjs';
 import { sende, rahmen, absatz, knopf, mailBereit } from '../../lib/mail.mjs';
 import { portion, briefHtml, abmeldeLink, signatur } from '../../lib/nl.mjs';
-import { FELDER } from '../../lib/inhalt-standard.mjs';
+import { FELDER, musikVon } from '../../lib/inhalt-standard.mjs';
 import { ROUTEN, retreatPfad } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
@@ -306,6 +306,11 @@ async function verwaltung(req, p, m, admin, seite, u) {
       if (e.abschnitte) for (const s of ['stimmen', 'galerie']) if (typeof e.abschnitte[s] === 'boolean') E.abschnitte[s] = e.abschnitte[s];
       if (e.bildplaetze) for (const s of Object.keys(E.bildplaetze)) if (typeof e.bildplaetze[s] === 'string') E.bildplaetze[s] = e.bildplaetze[s];
       if (e.fristen) for (const s of Object.keys(E.fristen)) { const n = Number(e.fristen[s]); if (n >= 1 && n <= 120) E.fristen[s] = n; }
+      if (e.musik) {
+        const M = E.musik = musikVon(E);
+        if (['harfe', 'aus'].includes(e.musik.quelle) || (e.musik.quelle === 'datei' && M.datei)) M.quelle = e.musik.quelle;
+        const n = Math.round(Number(e.musik.lautstaerke)); if (n >= 5 && n <= 100) M.lautstaerke = n;
+      }
     }
     if (typeof b.entwurf === 'boolean') i.entwurf = b.entwurf;
     await D.inhaltSpeichern(i); await D.protokoll(admin.email, 'Inhalte gespeichert'); await seitenNeu();
@@ -355,6 +360,36 @@ async function verwaltung(req, p, m, admin, seite, u) {
   if (p === '/nachricht/loeschen' && m === 'POST') {
     const rs = await D.retreats(); const r = rs.find(x => x.id === b.rid); if (!r) return json({ fehler: 'Nicht gefunden.' }, 404);
     r.nachrichten = (r.nachrichten || []).filter(n => n.id !== b.id); await D.retreatsSpeichern(rs); return json({ ok: true });
+  }
+
+  // ---- Musik für das Atem-Ritual (eigene Datei, in Teilen hochgeladen) ----
+  if (p === '/musik' && m === 'POST') {
+    const TYPEN = /^audio\/(mpeg|mp3|mp4|x-m4a|m4a|aac|ogg|wav|x-wav|webm)$/;
+    const typ = (req.headers.get('x-typ') || '').toLowerCase();
+    if (!TYPEN.test(typ)) return json({ fehler: 'Bitte eine Musikdatei hochladen (MP3, M4A, OGG oder WAV).' }, 400);
+    const teil = Number(req.headers.get('x-teil')), teile = Number(req.headers.get('x-teile'));
+    if (!(teile >= 1 && teile <= 10 && teil >= 0 && teil < teile)) return json({ fehler: 'Die Datei ist zu groß (höchstens 30 MB).' }, 400);
+    const mid = teil === 0 ? id(10) : String(req.headers.get('x-mid') || '').replace(/[^\w-]/g, '').slice(0, 20);
+    if (!mid) return json({ fehler: 'Upload unvollständig. Bitte noch einmal versuchen.' }, 400);
+    const buf = Buffer.from(await req.arrayBuffer());
+    if (!buf.length || buf.length > 4 * 1024 * 1024) return json({ fehler: 'Teil der Datei ist zu groß.' }, 400);
+    await D.dateiSpeichern('musik', `${mid}-${teil}`, buf, { typ });
+    if (teil < teile - 1) return json({ ok: true, mid });
+    let groesse = 0;
+    for (let n = 0; n < teile; n++) { const { buf: t } = await D.datei('musik', `${mid}-${n}`); if (!t) return json({ fehler: 'Upload unvollständig. Bitte noch einmal versuchen.' }, 400); groesse += t.byteLength; }
+    const i = await D.inhalt(); const alt = musikVon(i.einstellungen);
+    i.einstellungen.musik = { ...alt, quelle: 'datei', datei: mid, name: kurz(decodeURIComponent(req.headers.get('x-name') || 'Musik'), 120), typ, teile, groesse };
+    await D.inhaltSpeichern(i);
+    if (alt.datei && alt.datei !== mid) for (let n = 0; n < (alt.teile || 0); n++) await D.dateiLoeschen('musik', `${alt.datei}-${n}`);
+    await D.protokoll(admin.email, 'Musik für das Ritual hochgeladen'); await seitenNeu();
+    return json({ ok: true, mid, musik: i.einstellungen.musik });
+  }
+  if (p === '/musik/loeschen' && m === 'POST') {
+    const i = await D.inhalt(); const alt = musikVon(i.einstellungen);
+    for (let n = 0; n < (alt.teile || 0); n++) await D.dateiLoeschen('musik', `${alt.datei}-${n}`);
+    i.einstellungen.musik = { ...alt, quelle: alt.quelle === 'datei' ? 'harfe' : alt.quelle, datei: '', name: '', typ: '', teile: 0, groesse: 0 };
+    await D.inhaltSpeichern(i); await D.protokoll(admin.email, 'Eigene Ritual-Musik entfernt'); await seitenNeu();
+    return json({ ok: true, musik: i.einstellungen.musik });
   }
 
   // ---- Bilder & Dokumente (Rohdaten-Upload) ----

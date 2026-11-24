@@ -269,8 +269,14 @@
     // Irische Klänge, im Browser erzeugt (keine Datei, kein fremder Server):
     // gezupfte keltische Harfe (physikalisches Saitenmodell), Low Whistle mit Atemgeräusch und Verzierungen,
     // leiser Dudelsack-Bordun in D und Wind. Die Weise ist eine eigene, langsame Air im irischen Stil.
+    // Einstellungen aus dem Dashboard: Quelle (harfe | datei | aus) und Lautstärke 5–100 %.
+    // Die Übung beginnt immer in Stille; Musik kommt nur dazu, wenn die Besucherin sie einschaltet.
+    const MQ = r.dataset.musik || 'harfe', MURL = r.dataset.musikUrl || '';
+    const PEGEL = Math.min(1, Math.max(.05, (Number(r.dataset.laut) || 30) / 100));
     const klang = (() => {
-      let ac = null, master = null, hall = null, laufend = false, stumm = false, quellen = [], timer = [];
+      let ac = null, master = null, hall = null, laufend = false, stumm = true, quellen = [], timer = [], audio = null, quelleEl = null;
+      const ziel = () => MQ === 'datei' ? PEGEL : PEGEL * .55; // erzeugte Musik ist von Natur aus dichter, daher etwas leiser
+      const blenden = (an, dauer) => { if (!master) return; const t = ac.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(an ? ziel() : .0001, t + dauer); };
       const hz = n => 440 * Math.pow(2, (n - 69) / 12), saiten = {};
       function saite(n) { // Karplus-Strong: Rauschimpuls läuft gedämpft durch eine Verzögerung = gezupfte Saite
         if (saiten[n]) return saiten[n];
@@ -325,9 +331,15 @@
         return t;
       }
       function start() {
-        if (laufend) return; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        if (laufend || MQ === 'aus') return; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
         ac = ac || new AC(); ac.resume?.(); laufend = true; quellen = [];
-        master = ac.createGain(); master.gain.value = stumm ? 0.0001 : 1; master.connect(ac.destination);
+        master = ac.createGain(); master.gain.value = .0001; master.connect(ac.destination);
+        if (!stumm) blenden(true, 3.5); // sanft einblenden statt schlagartig laut
+        if (MQ === 'datei' && MURL) { // eigene Aufnahme aus dem Dashboard, über denselben Lautstärkeregler (auch am iPhone)
+          if (!audio) { audio = new Audio(MURL); audio.loop = true; audio.preload = 'auto'; quelleEl = ac.createMediaElementSource(audio); }
+          quelleEl.disconnect(); quelleEl.connect(master); audio.play().catch(() => {});
+          return;
+        }
         const conv = hallBauen(), hg = ac.createGain(); hg.gain.value = .55; hall = ac.createGain(); hall.connect(conv); conv.connect(hg); hg.connect(master);
         // Bordun wie bei der Uilleann Pipe: D3 und D2, weich gefiltert, langsam einschwellend
         const tp = ac.createBiquadFilter(); tp.type = 'lowpass'; tp.frequency.value = 520; const bg = ac.createGain();
@@ -350,24 +362,23 @@
       }
       function stopp(sanft = 4) {
         if (!laufend) return; laufend = false; timer.forEach(clearTimeout);
-        const t = ac.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(0.0001, t + sanft);
-        const q = quellen.splice(0); setTimeout(() => q.forEach(o => { try { o.stop(); } catch {} }), sanft * 1000 + 200);
+        blenden(false, sanft);
+        const q = quellen.splice(0), a = audio; setTimeout(() => { q.forEach(o => { try { o.stop(); } catch {} }); if (a && !laufend) a.pause(); }, sanft * 1000 + 200);
       }
       function stummSchalten(an) {
-        stumm = an; if (!ac || !laufend) return; const t = ac.currentTime; master.gain.cancelScheduledValues(t);
-        master.gain.setValueAtTime(Math.max(.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(an ? .0001 : 1, t + 1.2);
+        stumm = an; if (!an && !laufend) { start(); return; } if (!ac || !laufend) return; blenden(!an, an ? 1.5 : 3);
       }
       return { start, stopp, schale() {}, stummSchalten, get stumm() { return stumm; } };
     })();
     const tonKnopf = r.querySelector('[data-klang]');
-    const tonText = () => { tonKnopf.setAttribute('aria-pressed', String(!klang.stumm)); tonKnopf.querySelector('span').textContent = klang.stumm ? (en ? 'Sound on' : 'Klang an') : (en ? 'Sound off' : 'Klang aus'); };
+    const tonText = () => { if (!tonKnopf) return; tonKnopf.setAttribute('aria-pressed', String(!klang.stumm)); tonKnopf.querySelector('span').textContent = klang.stumm ? (en ? 'Add music' : 'Musik dazu') : (en ? 'Music off' : 'Musik aus'); };
     tonKnopf?.addEventListener('click', () => { klang.stummSchalten(!klang.stumm); tonText(); });
 
     let laeuft = false;
     const ritualStarten = async () => {
       if (laeuft) return; laeuft = true;
       knopf.disabled = true; ende.hidden = true; r.classList.add('brennt'); feuerStarten(); funkenStarten();
-      klang.start(); if (tonKnopf) { tonKnopf.hidden = false; tonText(); }
+      if (!klang.stumm) klang.start(); tonText(); // Start in Stille, außer die Besucherin hat Musik gewählt
       anz.textContent = en ? 'The fire is lit …' : 'Das Feuer brennt …';
       await warte(2200);
       for (let n = 1; n <= 3; n++) {
@@ -376,7 +387,7 @@
         r.dataset.phase = 'aus'; anz.textContent = T.aus; await warte(6000);
       }
       r.dataset.phase = ''; anz.textContent = ''; ende.hidden = false; knopf.textContent = T.neu; knopf.disabled = false;
-      klang.stopp(6); if (tonKnopf) setTimeout(() => { tonKnopf.hidden = true; }, 6000);
+      klang.stopp(6);
       laeuft = false;
     };
     // Ein einziger Tipp genügt: pointerup reagiert sofort, click als Rückfall (Tastatur)

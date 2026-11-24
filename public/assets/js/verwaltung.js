@@ -602,6 +602,7 @@
   // ===================== Einstellungen =====================
   ANSICHT.einstellungen = async () => {
     const [i, prot] = await Promise.all([api('/v/inhalt'), api('/v/protokoll')]); const E = i.einstellungen;
+    const M = { quelle: 'harfe', lautstaerke: 30, datei: '', name: '', groesse: 0, ...(E.musik || {}) };
     const feld = (k, label, wert, hilfe = '') => `<div class="feld"><label for="s-${k}">${label}${hilfe ? ` <span class="feld__hinweis">${hilfe}</span>` : ''}</label><input id="s-${k}" data-e="${k}" value="${esc(wert || '')}"></div>`;
     main.innerHTML = kopf('Einstellungen') +
       `<form class="karte" id="eins" novalidate><h2 class="h3">Angaben für Impressum, Fußzeile und Google</h2><div class="raster2">
@@ -617,6 +618,19 @@
         <div class="feld"><label for="f2">Unbestätigte Newsletter-Anmeldungen (Tage)</label><input id="f2" type="number" min="1" max="120" data-fr="unbestaetigtTage" value="${E.fristen.unbestaetigtTage}"></div>
         <div class="feld"><label for="f3">Teilnehmerinnen-Konten nach der Reise (Monate)</label><input id="f3" type="number" min="1" max="120" data-fr="teilnehmerinnenMonateNachReise" value="${E.fristen.teilnehmerinnenMonateNachReise}"></div></div>
         <div class="leiste"><button class="knopf">Einstellungen speichern</button></div></form>
+      <form class="karte" id="musik" novalidate><h2 class="h3">Musik beim Atem-Ritual</h2>
+        <p class="klein">Die Atemübung auf der Startseite beginnt immer in Stille. Besucherinnen können mit dem Knopf „Musik dazu" die hier gewählte Musik einschalten. Sie wird sanft eingeblendet.</p>
+        <fieldset class="musikwahl"><legend>Welche Musik?</legend>
+          <label class="haken"><input type="radio" name="mq" value="harfe" ${M.quelle === 'harfe' ? 'checked' : ''}><span>Eingebaute irische Musik (Harfe, Low Whistle, Bordun)</span></label>
+          <label class="haken"><input type="radio" name="mq" value="datei" ${M.quelle === 'datei' ? 'checked' : ''} ${M.datei ? '' : 'disabled'}><span>Eigene Musik${M.datei ? `: <strong>${esc(M.name)}</strong> (${(M.groesse / 1048576).toFixed(1)} MB)` : ' (zuerst unten eine Datei hochladen)'}</span></label>
+          <label class="haken"><input type="radio" name="mq" value="aus" ${M.quelle === 'aus' ? 'checked' : ''}><span>Keine Musik anbieten</span></label></fieldset>
+        <div class="feld"><label for="m-laut">Lautstärke <span class="feld__hinweis" id="m-wert">${M.lautstaerke} %</span></label>
+          <input id="m-laut" type="range" min="5" max="100" step="5" value="${M.lautstaerke}"><p class="klein">Empfehlung: 25–40 %. Die Musik soll begleiten, nicht übertönen.</p></div>
+        ${M.datei ? `<div class="feld"><label>Probehören (mit der eingestellten Lautstärke)</label><audio id="m-probe" controls preload="none" src="/musik/${esc(M.datei)}"></audio></div>` : ''}
+        <div class="reihe"><label class="knopf knopf--leise knopf--klein">${M.datei ? 'Andere Musikdatei hochladen' : 'Musikdatei hochladen'}<input type="file" id="m-datei" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/wav,.mp3,.m4a,.ogg,.wav" hidden></label>
+          ${M.datei ? '<button type="button" class="knopf knopf--leise knopf--klein" id="m-weg">Eigene Musik entfernen</button>' : ''}</div>
+        <p class="klein">MP3, M4A, OGG oder WAV, höchstens 30 MB (MP3 ist am sparsamsten). Die Musik läuft in Schleife. Bitte nur Musik verwenden, für die ihr die Rechte für eine Website habt: eigene Aufnahmen oder lizenzfreie Musik mit Erlaubnis zur Nutzung im Internet.</p>
+        <div class="leiste"><button class="knopf">Musik-Einstellung speichern</button></div></form>
       <div class="raster2"><form class="karte" id="ich" novalidate><h2 class="h3">Mein Konto</h2>
         <div class="feld"><label for="i-n">Name</label><input id="i-n" name="name" value="${esc(S.status.ich.name)}"></div>
         ${S.status.ich.benutzer ? `<p class="klein">Benutzername: <strong>${esc(S.status.ich.benutzer)}</strong></p>` : ''}
@@ -640,6 +654,29 @@
       $$('[data-e]').forEach(x => ein[x.dataset.e] = x.value); $$('[data-soc]').forEach(x => ein.social[x.dataset.soc] = x.value); $$('[data-fr]').forEach(x => ein.fristen[x.dataset.fr] = x.value);
       await sicher(() => api('/v/inhalt', { einstellungen: ein }), 'Gespeichert. Impressum und Datenschutz sind aktualisiert.'); S.ungespeichert = false;
     };
+    const laut = $('#m-laut'), probe = $('#m-probe');
+    const lautZeigen = () => { $('#m-wert').textContent = laut.value + ' %'; if (probe) probe.volume = laut.value / 100; };
+    laut.oninput = lautZeigen; lautZeigen();
+    $('#musik').onsubmit = async e => {
+      e.preventDefault();
+      await sicher(() => api('/v/inhalt', { einstellungen: { musik: { quelle: (e.target.mq.value || 'harfe'), lautstaerke: Number(laut.value) } } }), 'Gespeichert. Die Website ist aktualisiert.');
+    };
+    $('#m-datei').onchange = async e => {
+      const d = e.target.files[0]; if (!d) return;
+      if (d.size > 30 * 1048576) { meldung('Die Datei ist größer als 30 MB. Bitte eine MP3 verwenden.', true); return; }
+      const typ = d.type || ({ mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', wav: 'audio/wav' })[d.name.split('.').pop().toLowerCase()] || '';
+      const GROESSE = 3.5 * 1048576, teile = Math.max(1, Math.ceil(d.size / GROESSE)); let mid = '';
+      try {
+        for (let n = 0; n < teile; n++) {
+          meldung(`„${d.name}" wird hochgeladen … ${Math.round(n / teile * 100)} %`);
+          const r = await api('/v/musik', d.slice(n * GROESSE, (n + 1) * GROESSE), { typ: 'application/octet-stream', kopf: { 'x-typ': typ, 'x-teil': n, 'x-teile': teile, 'x-mid': mid, 'x-name': encodeURIComponent(d.name) } });
+          mid = r.mid;
+        }
+        await api('/v/inhalt', { einstellungen: { musik: { quelle: 'datei', lautstaerke: Number(laut.value) } } });
+        meldung('Musik hochgeladen und ausgewählt.'); ANSICHT.einstellungen();
+      } catch (err) { meldung(err.message, true); }
+    };
+    if ($('#m-weg')) $('#m-weg').onclick = async () => { if (!confirm('Eigene Musik entfernen? Danach wird wieder die eingebaute irische Musik angeboten.')) return; await sicher(() => api('/v/musik/loeschen', {}), 'Entfernt.'); ANSICHT.einstellungen(); };
     $('#ich').onsubmit = async e => { e.preventDefault(); await sicher(() => api('/v/ich', { name: e.target.name.value, email: e.target.email.value, telefon: e.target.telefon.value }), 'Gespeichert.'); S.status.ich.telefon = e.target.telefon.value; S.status.ich.email = e.target.email.value; };
     $('#kw').onsubmit = async e => { e.preventDefault(); await sicher(() => api('/konto/kennwort', { alt: e.target.alt.value, neu: e.target.neu.value }), 'Kennwort geändert.'); e.target.reset(); };
   };

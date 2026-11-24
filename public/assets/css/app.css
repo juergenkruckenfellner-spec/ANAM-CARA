@@ -121,3 +121,7 @@ button.textlink{background:none;border:0;padding:0 4px;cursor:pointer;font:inher
 .zahlen-zeile{margin:10px 0}
 .klappe{margin-top:10px}
 dialog .haken{margin:8px 0}
+.musikwahl{border:0;padding:0;margin:8px 0 22px;display:grid;gap:10px}
+.musikwahl legend{padding:0;margin-bottom:10px;font:700 .7rem/1.4 var(--text,sans-serif);letter-spacing:.2em;text-transform:uppercase}
+.musikwahl .haken{text-transform:none;letter-spacing:normal;font-weight:400;font-size:1rem}
+#m-laut{width:100%;accent-color:#B0673F}

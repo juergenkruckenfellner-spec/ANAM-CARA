@@ -30,7 +30,7 @@ http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${port}`);
     let p = url.pathname;
     if (p === '/.netlify/images') { p = url.searchParams.get('url'); url.pathname = p; url.search = ''; }
-    const st = !p.startsWith('/api/') && !p.startsWith('/bild/') && p !== '/' && !p.startsWith('/en') ? await statisch(p) : null;
+    const st = !p.startsWith('/api/') && !p.startsWith('/bild/') && !p.startsWith('/musik/') && p !== '/' && !p.startsWith('/en') ? await statisch(p) : null;
     if (st && !/\/(sitemap\.xml|llms\.txt)$/.test(p)) {
       res.writeHead(200, { 'content-type': TYP[path.extname(st.f)] || 'application/octet-stream', 'content-security-policy': CSP, 'x-frame-options': 'DENY', 'cache-control': 'no-store' });
       return res.end(st.buf);

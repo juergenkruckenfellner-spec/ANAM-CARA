@@ -3,6 +3,8 @@ import { inhalt, retreats, bilder, stimmen, datei } from '../../lib/daten.mjs';
 import * as S from '../../lib/seiten.mjs';
 import { impressum, datenschutz } from '../../lib/recht.mjs';
 import { seitenUrl, esc, zeitraum, SICHERHEIT } from '../../lib/util.mjs';
+import { musikVon } from '../../lib/inhalt-standard.mjs';
+const musikCache = new Map();
 
 const KOPF = {
   ...SICHERHEIT,
@@ -26,6 +28,28 @@ export default async (req) => {
     const { buf, meta } = await datei('bild', fid);
     if (!buf) return new Response('Nicht gefunden', { status: 404 });
     return new Response(buf, { headers: { ...SICHERHEIT, 'content-type': meta?.typ || 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable' } });
+  }
+
+  // Eigene Ritual-Musik: Teile zusammensetzen, Bereichsanfragen (Range) für Safari/iPhone beantworten
+  if (pfad.startsWith('/musik/')) {
+    const mid = pfad.slice(7).replace(/[^\w-]/g, '');
+    const M = musikVon((await inhalt()).einstellungen);
+    if (!M.datei || M.datei !== mid) return new Response('Nicht gefunden', { status: 404 });
+    let ganz = musikCache.get(mid);
+    if (!ganz) {
+      const teile = [];
+      for (let n = 0; n < M.teile; n++) { const { buf } = await datei('musik', `${mid}-${n}`); if (!buf) return new Response('Nicht gefunden', { status: 404 }); teile.push(Buffer.from(buf)); }
+      ganz = Buffer.concat(teile); musikCache.clear(); musikCache.set(mid, ganz);
+    }
+    const kopf = { ...SICHERHEIT, 'content-type': M.typ || 'audio/mpeg', 'accept-ranges': 'bytes', 'cache-control': 'public, max-age=31536000, immutable' };
+    const rg = /bytes=(\d*)-(\d*)/.exec(req.headers.get('range') || '');
+    if (rg) {
+      let a = rg[1] === '' ? Math.max(0, ganz.length - Number(rg[2])) : Number(rg[1]);
+      let e = rg[1] !== '' && rg[2] !== '' ? Math.min(Number(rg[2]), ganz.length - 1) : ganz.length - 1;
+      if (a >= ganz.length || a > e) return new Response(null, { status: 416, headers: { ...kopf, 'content-range': `bytes */${ganz.length}` } });
+      return new Response(ganz.subarray(a, e + 1), { status: 206, headers: { ...kopf, 'content-range': `bytes ${a}-${e}/${ganz.length}`, 'content-length': String(e - a + 1) } });
+    }
+    return new Response(ganz, { headers: { ...kopf, 'content-length': String(ganz.length) } });
   }
 
   const [i, rs, bl, st] = await Promise.all([inhalt(), retreats(), bilder(), stimmen()]);
@@ -104,5 +128,5 @@ ${[1, 2, 3, 4, 5, 6].map(n => `- ${T[`faq.${n}.f`]} ${T[`faq.${n}.a`]}`).join('\
 
 export const config = {
   path: ['/', '/en', '/en/*', '/retreats', '/retreats/*', '/ueber-uns', '/kennenlernen', '/vormerken', '/kontakt', '/galerie',
-    '/impressum', '/datenschutz', '/newsletter/*', '/bild/*', '/sitemap.xml', '/llms.txt'],
+    '/impressum', '/datenschutz', '/newsletter/*', '/bild/*', '/musik/*', '/sitemap.xml', '/llms.txt'],
 };
