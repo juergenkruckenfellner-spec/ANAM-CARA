@@ -97,7 +97,7 @@ export default async (req) => {
     }
 
     // ================= Anmeldung =================
-    if (p === '/version' && m === 'GET') { const { store } = await import('../../lib/store.mjs'); return json({ fassung: 'anmeldung-3', erstkonto: !!(await (await store()).getJSON('system/erstkonto-1')) }); }
+    if (p === '/version' && m === 'GET') { const { store } = await import('../../lib/store.mjs'); return json({ fassung: 'anmeldung-4', erstkonto: !!(await (await store()).getJSON('system/erstkonto-1')) }); }
     if (p === '/anmelden' && m === 'POST') { const b = await body(req); return anmelden(b.email, b.kennwort, ip(req), seite); }
     if (p === '/anmelden/code' && m === 'POST') { const b = await body(req); return codeBestaetigen(b.ticket, b.code, ip(req)); }
     if (p === '/abmelden' && m === 'POST') return json({ ok: true }, 200, { 'set-cookie': abmeldeCookie() });
