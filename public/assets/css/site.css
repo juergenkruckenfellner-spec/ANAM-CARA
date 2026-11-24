@@ -288,20 +288,37 @@ input:focus,select:focus,textarea:focus{border-color:var(--gruen);outline:2px so
 .recht h2{margin-top:1.6em}
 
 /* Fuß */
-.fuss{background:var(--nacht) var(--korn);color:var(--mond-weich);margin-top:var(--abstand);padding:88px var(--rand) 30px}
+.fuss{background:var(--nacht) var(--korn);color:var(--mond-weich);margin-top:var(--abstand);padding:44px var(--rand) 20px;font-size:.92rem}
 .reisen + .fuss,.gratis + .fuss{margin-top:0}
-.fuss__innen{max-width:var(--breit);margin:auto;display:grid;grid-template-columns:2fr 1fr 1fr 1.4fr;gap:44px}
-.fuss .marke{color:var(--glut)}
-.fuss__name{font:300 2.2rem var(--anzeige);margin:12px 0 8px;color:var(--mond)}
-.fuss ul{list-style:none;margin:0;padding:0}
-.fuss li a,.fuss address a{display:inline-flex;min-height:36px;align-items:center;text-decoration:none}
-.fuss a:hover{color:var(--glut)}
-.fuss address{font-style:normal;display:flex;flex-direction:column;gap:6px}
-.fuss__ende{max-width:var(--breit);margin:56px auto 0;padding-top:22px;border-top:1px solid var(--linie-nacht);display:flex;align-items:center;gap:20px}
-.fuss__ende .fuss__klein{margin:0;padding:0;border:0}
-.fuss__klein{max-width:var(--breit);margin:56px auto 0;padding-top:22px;border-top:1px solid var(--linie-nacht);font-size:.8rem;letter-spacing:.04em;opacity:.75}
-@media (max-width:900px){.fuss__innen{grid-template-columns:1fr 1fr}}
-@media (max-width:560px){.fuss__innen{grid-template-columns:1fr}}
+.fuss a{color:inherit}
+.fuss a:hover,.fuss a:focus-visible{color:var(--glut)}
+.zeichen{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.fuss__band{max-width:var(--breit);margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px 40px;flex-wrap:wrap}
+.fuss__marke{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--mond)}
+.fuss__marke .marke{color:var(--glut);width:30px;height:30px}
+.fuss__name{font:300 1.7rem/1 var(--anzeige);letter-spacing:.05em}
+.fuss__wege{display:flex;flex-wrap:wrap;gap:4px 6px}
+.fuss__wege a{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:76px;min-height:44px;padding:8px 6px;text-decoration:none;font:700 .62rem/1.2 var(--text);letter-spacing:.2em;text-transform:uppercase;color:var(--mond-weich);transition:color .4s}
+.fuss__wege .zeichen{width:26px;height:26px;color:var(--glut);opacity:.75;transition:transform .7s cubic-bezier(.22,.61,.36,1),opacity .4s,filter .4s}
+.fuss__wege a::after{content:"";position:absolute;top:2px;left:50%;width:40px;height:40px;margin-left:-20px;border-radius:50%;background:radial-gradient(circle,rgba(232,160,102,.22),transparent 70%);opacity:0;transform:scale(.6);transition:opacity .5s,transform .6s;pointer-events:none}
+.fuss__wege a:hover .zeichen,.fuss__wege a:focus-visible .zeichen{opacity:1;transform:translateY(-2px) rotate(-8deg);filter:drop-shadow(0 0 6px rgba(232,160,102,.6))}
+.fuss__wege a:hover::after,.fuss__wege a:focus-visible::after{opacity:1;transform:scale(1)}
+.fuss__runen{max-width:var(--breit);margin:18px auto 14px;display:flex;align-items:center;gap:16px}
+.fuss__runen::before,.fuss__runen::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--linie-nacht),transparent)}
+.fuss__runen .ogham{color:var(--glut);opacity:.55;margin:0;width:200px;height:auto}
+.fuss__zeile{max-width:var(--breit);margin:auto;display:flex;justify-content:space-between;align-items:center;gap:10px 30px;flex-wrap:wrap}
+.fuss__satz{margin:0;font:300 italic 1.05rem/1.4 var(--anzeige);color:var(--mond)}
+.fuss address{font-style:normal;display:flex;flex-wrap:wrap;gap:4px 22px}
+.fuss address span,.fuss address a{display:inline-flex;align-items:center;gap:7px;min-height:32px;text-decoration:none}
+.fuss address .zeichen{width:16px;height:16px;color:var(--glut);opacity:.7}
+.fuss__ende{max-width:var(--breit);margin:18px auto 0;padding-top:14px;border-top:1px solid var(--linie-nacht);display:flex;align-items:center;gap:10px 20px;flex-wrap:wrap}
+.fuss__klein{margin:0;font-size:.74rem;letter-spacing:.04em;opacity:.65;flex:1;min-width:240px;text-align:right}
+.fuss__recht{margin:0;display:flex;gap:4px 18px;flex-wrap:wrap;font-size:.8rem}
+.fuss__recht a{display:inline-flex;align-items:center;gap:6px;min-height:36px;text-decoration:none;opacity:.85}
+.fuss__recht .zeichen{width:15px;height:15px;color:var(--glut)}
+.fuss__klein .fuss__credit{white-space:normal}
+@media (max-width:760px){.fuss{padding-top:34px;padding-bottom:84px}.fuss__klein{text-align:center}.fuss__wege{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;width:100%}.fuss__wege a{min-width:0;padding:8px 0;letter-spacing:.04em;font-size:.52rem}.fuss__band{justify-content:center}.fuss__wege{justify-content:center}.fuss__wege a{min-width:66px}.fuss__zeile{justify-content:center;text-align:center}.fuss address{justify-content:center}.fuss__ende{justify-content:center;text-align:center}}
+@media (prefers-reduced-motion:reduce){.fuss__wege .zeichen,.fuss__wege a::after{transition:none}}
 
 /* Nach oben */
 .nach-oben{position:fixed;right:20px;bottom:20px;z-index:25;width:48px;height:48px;border-radius:50%;background:var(--nacht);color:var(--glut);border:1px solid rgba(232,160,102,.5);display:grid;place-items:center;cursor:pointer;opacity:0;transform:translateY(12px);transition:opacity .4s,transform .4s}
@@ -377,7 +394,7 @@ body.mit-landschaft{background:var(--nacht)}
 .mit-landschaft .gratis__gross{background:rgba(12,20,16,.86)}
 .mit-landschaft .gratis__klein{background:rgba(47,74,58,.9)}
 .mit-landschaft .fuss{background:rgba(10,18,14,.9);margin-top:0}
-.fuss__credit a{color:var(--mond-weich)}
+.fuss__credit{color:inherit}
 @media (prefers-reduced-motion:reduce){.land__nebel::before,.land__licht{animation:none!important}.land__bild{transform:scale(1.04)!important}}
 @media (max-width:700px){.land__mond{right:2%;top:11%;width:130px;height:130px}.land__bild{transform-origin:62% 55%}.land__foto{object-position:62% 50%}}
 
@@ -467,7 +484,7 @@ body.mit-landschaft{background:var(--nacht)}
 
 /* Irische Handschrift-Anmutung: Ogham, Triskele, Knotenband, Unziale */
 .ogham{display:block;color:var(--orange);opacity:.75;margin:18px 0 0;max-width:100%;height:auto}
-.fuss .ogham{color:var(--glut);opacity:.6;margin:10px 0 14px}
+
 .triskele{color:var(--orange-tief)}
 .triskele--wasser{position:absolute;z-index:-1;width:min(52vw,620px);height:auto;left:-8%;top:50%;transform:translateY(-50%);opacity:.07;animation:drehen 240s linear infinite}
 .triskele--rechts{left:auto;right:-10%}
