@@ -14,6 +14,7 @@
     main.innerHTML = `<p class="vorzeile">Dein Bereich</p><h1 class="h1">Hallo ${esc(vor)}</h1>
       ${d.reisen.length ? '' : '<div class="karte"><p>Hier erscheinen deine Reiseinfos, sobald Sabine oder Nina dich einer Reise zugeordnet haben.</p></div>'}
       ${d.reisen.map(reise).join('')}
+      ${zahlungen(d)}
       ${profil(d.konto)}`;
     binden(d);
   }
@@ -39,6 +40,17 @@
           <button class="knopf knopf--hell" type="submit">Absenden</button></form></div>`) : ''}
       </div>
     </div></section>`;
+  }
+
+  function zahlungen(d) {
+    if (!d.rechnungen?.length) return '';
+    const euro = n => (Number(n) || 0).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' });
+    const ST = { offen: 'offen', teilbezahlt: 'teilweise bezahlt', ueberfaellig: 'bitte überweisen', bezahlt: 'bezahlt', storniert: 'storniert' };
+    const datum = iso => new Date(iso + 'T12:00:00').toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `<section class="karte" id="zahlungen"><h2 class="h3">Deine Rechnungen</h2>
+      <table class="tabelle"><tr><th>Rechnung</th><th>Betrag</th><th>Stand</th><th></th></tr>
+      ${d.rechnungen.map(r => `<tr><td><strong>${esc(r.nr)}</strong><br><span class="klein">${esc(r.titel)}</span></td><td>${euro(r.summe)}</td><td><span class="etikett ${r.status === 'bezahlt' ? 'etikett--gruen' : r.status === 'ueberfaellig' ? 'etikett--rot' : 'etikett--neu'}">${ST[r.status] || r.status}</span>${r.offen > 0 && r.status !== 'storniert' ? `<br><span class="klein">offen ${euro(r.offen)} bis ${datum(r.frist)}</span>` : ''}</td><td><a class="knopf knopf--leise knopf--klein" href="${esc(r.link)}" target="_blank" rel="noopener">Ansehen</a></td></tr>`).join('')}</table>
+      ${d.bank && d.rechnungen.some(r => r.offen > 0 && r.status !== 'storniert') ? `<p class="klein">Überweisung an ${esc(d.bank.inhaber)}, IBAN ${esc(d.bank.iban)}${d.bank.bic ? ', BIC ' + esc(d.bank.bic) : ''}. Bitte die Rechnungsnummer als Verwendungszweck angeben.</p>` : ''}</section>`;
   }
 
   function profil(k) {

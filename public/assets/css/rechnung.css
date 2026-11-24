@@ -1,0 +1,56 @@
+/* Rechnung im Stil von anam-cara.at – druckfertig auf A4 */
+@font-face{font-family:Cormorant;src:url(/assets/fonts/cormorant-latin-300-normal.woff2) format('woff2');font-weight:300;font-display:swap}
+@font-face{font-family:Cormorant;src:url(/assets/fonts/cormorant-latin-500-normal.woff2) format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:Cormorant;src:url(/assets/fonts/cormorant-latin-300-italic.woff2) format('woff2');font-weight:300;font-style:italic;font-display:swap}
+@font-face{font-family:'Alegreya Sans';src:url(/assets/fonts/alegreya-sans-latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Alegreya Sans';src:url(/assets/fonts/alegreya-sans-latin-700-normal.woff2) format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Uncial Antiqua';src:url(/assets/fonts/uncial-antiqua-latin-400-normal.woff2) format('woff2');font-display:swap}
+:root{--nacht:#121C17;--gruen:#2F4A3A;--papier:#FBF8F3;--sand:#F3ECE1;--linie:#E2D5C2;--glut:#E8A066;--kupfer:#A4501A;--tinte:#2B2622}
+*{box-sizing:border-box}
+html{background:var(--nacht)}
+body{margin:0;padding:28px 16px 60px;font:400 15px/1.55 'Alegreya Sans',Georgia,serif;color:var(--tinte);background:radial-gradient(ellipse at 50% 0,#1E2C25 0,var(--nacht) 70%)}
+.re-leiste{max-width:794px;margin:0 auto 16px;display:flex;gap:10px;justify-content:flex-end}
+.re-knopf{font:700 .72rem/1 'Alegreya Sans',sans-serif;letter-spacing:.2em;text-transform:uppercase;padding:13px 20px;border-radius:999px;border:1px solid var(--glut);background:var(--glut);color:var(--nacht);cursor:pointer;text-decoration:none}
+.re-knopf--leise{background:transparent;color:var(--glut)}
+.re-blatt{position:relative;overflow:hidden;max-width:794px;min-height:1123px;margin:0 auto;padding:64px 68px 56px;background:var(--papier);box-shadow:0 30px 80px rgba(0,0,0,.45);background-image:radial-gradient(ellipse at 100% 0,rgba(232,160,102,.10),transparent 55%),radial-gradient(ellipse at 0 100%,rgba(47,74,58,.07),transparent 50%)}
+.re-blatt::before{content:"";position:absolute;inset:14px;border:1px solid var(--linie);pointer-events:none}
+.re-kopf{display:flex;justify-content:space-between;gap:30px;align-items:flex-start}
+.re-marke{display:flex;gap:16px;align-items:center}
+.re-triskele{width:56px;height:56px;color:var(--kupfer);flex:none}
+.re-name{margin:0;font:300 2.3rem/1 Cormorant,Georgia,serif;letter-spacing:.05em;color:var(--gruen)}
+.re-unter{margin:6px 0 0;font:700 .62rem/1.4 'Alegreya Sans',sans-serif;letter-spacing:.26em;text-transform:uppercase;color:var(--kupfer)}
+.re-absender{font-style:normal;text-align:right;font-size:.86rem;line-height:1.5;color:#5b5249}
+.re-absender strong{color:var(--tinte)}
+.re-zier{height:14px;margin:34px 0 30px;background:radial-gradient(circle at 7px 7px,var(--glut) 1.6px,transparent 2.2px) 0 0/22px 14px repeat-x;opacity:.75;border-top:1px solid var(--linie);border-bottom:1px solid var(--linie)}
+.re-mitte{display:flex;justify-content:space-between;gap:30px}
+.re-an{font-style:normal;line-height:1.55}
+.re-etikett,.re-daten dt,.re-bank dt{display:block;font:700 .62rem/1.4 'Alegreya Sans',sans-serif;letter-spacing:.24em;text-transform:uppercase;color:var(--kupfer);margin-bottom:6px}
+.re-daten{margin:0;display:grid;gap:12px;min-width:220px}
+.re-daten div{display:flex;justify-content:space-between;gap:18px;border-bottom:1px dotted var(--linie);padding-bottom:6px}
+.re-daten dt{margin:0}.re-daten dd{margin:0;font-weight:700}
+.re-titel{margin:46px 0 18px;font:300 3rem/1 Cormorant,Georgia,serif;color:var(--gruen);letter-spacing:.01em}
+.re-stufe{font-style:italic;color:var(--kupfer);font-size:.6em}
+.re-tabelle{width:100%;border-collapse:collapse}
+.re-tabelle th{font:700 .62rem/1.4 'Alegreya Sans',sans-serif;letter-spacing:.24em;text-transform:uppercase;color:var(--kupfer);text-align:left;padding:10px 0;border-bottom:1px solid var(--gruen)}
+.re-tabelle th:last-child,.re-tabelle td:last-child{text-align:right;white-space:nowrap;padding-left:24px}
+.re-tabelle td{padding:16px 0;border-bottom:1px solid var(--linie);vertical-align:top}
+.re-tabelle tfoot td{padding:9px 0;border:0}
+.re-summe td{font:500 1.35rem/1.3 Cormorant,Georgia,serif;border-top:1px solid var(--gruen)!important;padding-top:14px!important}
+.re-offen td{font:500 1.35rem/1.3 Cormorant,Georgia,serif;color:var(--kupfer)}
+.re-klein{font-size:.82rem;color:#6d645b;margin:14px 0 0}
+.re-zahlung{margin-top:34px;padding:22px 26px;background:var(--sand);border-left:3px solid var(--glut)}
+.re-zahlung h2{margin:0 0 8px;font:500 1.4rem/1.2 Cormorant,Georgia,serif;color:var(--gruen)}
+.re-zahlung p{margin:0 0 12px}
+.re-bank{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px 24px;margin:0}
+.re-bank dd{margin:0;font-weight:700;letter-spacing:.02em}
+.re-fehlt{color:#9b3b1d;font-style:italic}
+.re-fuss{position:absolute;left:68px;right:68px;bottom:44px;text-align:center;font:300 italic 1.1rem/1.5 Cormorant,Georgia,serif;color:var(--gruen)}
+.re-fuss p{margin:0}
+.re-ogham{margin-top:8px!important;font:400 .9rem/1 'Uncial Antiqua',serif;letter-spacing:.3em;color:var(--kupfer);opacity:.7;font-style:normal}
+.re-stempel{position:absolute;top:220px;right:70px;transform:rotate(-12deg);border:3px double #3c7a55;color:#3c7a55;font:700 1.1rem/1 'Alegreya Sans',sans-serif;letter-spacing:.3em;text-transform:uppercase;padding:12px 18px;opacity:.75}
+.re-stempel--rot{border-color:#9b3b1d;color:#9b3b1d}
+.re-wasser{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:300 9rem/1 Cormorant,Georgia,serif;color:rgba(164,80,26,.07);transform:rotate(-24deg);pointer-events:none;letter-spacing:.1em;text-transform:uppercase}
+@media (max-width:700px){.re-blatt{padding:40px 26px 140px;min-height:0}.re-kopf,.re-mitte{flex-direction:column}.re-absender{text-align:left}.re-titel{font-size:2.3rem}.re-fuss{left:26px;right:26px}}
+@page{size:A4;margin:0}
+@media print{html,body{background:#fff;padding:0}.re-leiste{display:none}.re-blatt{box-shadow:none;max-width:none;width:210mm;min-height:297mm;margin:0}}
+.re-nw{white-space:nowrap}

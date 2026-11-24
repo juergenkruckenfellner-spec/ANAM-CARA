@@ -7,6 +7,7 @@ import { portion, briefHtml, abmeldeLink, signatur } from '../../lib/nl.mjs';
 import { FELDER } from '../../lib/inhalt-standard.mjs';
 import { ROUTEN, retreatPfad } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
+import * as B from '../../lib/buchhaltung.mjs';
 
 const ip = req => req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for')?.split(',')[0] || 'lokal';
 const body = async req => { try { return await req.json(); } catch { return {}; } };
@@ -47,7 +48,7 @@ export default async (req) => {
       await D.fehlversuch('form:' + ip(req)); // max. 5 Anfragen je 15 Minuten und Adresse
       const rs = await D.retreats();
       const r = art === 'retreat' ? rs.find(x => x.slug === b.retreat) : null;
-      const a = await D.anfrageSpeichern({ art, name: kurz(b.name, 120), email: b.email.trim().toLowerCase(), telefon: kurz(b.telefon, 40), retreat: r ? r.titel.de + ' · ' + zeitraum(r.von, r.bis) : '', wann: kurz(b.wann, 200), nachricht: kurz(b.nachricht, 4000), sprache: en ? 'en' : 'de', newsletter: b.newsletter === 'ja' });
+      const a = await D.anfrageSpeichern({ art, name: kurz(b.name, 120), email: b.email.trim().toLowerCase(), telefon: kurz(b.telefon, 40), retreat: r ? r.titel.de + ' · ' + zeitraum(r.von, r.bis) : '', retreatId: r ? r.id : '', wann: kurz(b.wann, 200), nachricht: kurz(b.nachricht, 4000), sprache: en ? 'en' : 'de', newsletter: b.newsletter === 'ja' });
       const i = await D.inhalt();
       const ARTEN = { anfrage: 'Allgemeine Anfrage', retreat: 'Anfrage zu einer Reise', kennen: 'Kennenlerngespräch', warte: 'Vormerkung' };
       const an = env('MAIL_EMPFAENGER') || i.einstellungen.email;
@@ -170,7 +171,11 @@ export default async (req) => {
       if (p === '/bereich' && m === 'GET') {
         const heute = new Date().toISOString().slice(0, 10);
         const st = await D.stimmen();
+        const E = await B.reEinstellungen();
+        const meineRe = (await B.rechnungen()).filter(r => r.email === k.email && !r.beispiel && r.versandt).map(r => B.auswerten(r, E))
+          .map(r => ({ nr: r.nr, titel: r.positionen[0]?.text || '', summe: r.summe, offen: r.offen, status: r.status, frist: r.frist, link: `/api/rechnung/ansehen?id=${r.id}` }));
         return json({
+          rechnungen: meineRe, bank: E.iban ? { inhaber: E.aussteller, iban: E.iban, bic: E.bic } : null,
           konto: { name: k.name, email: k.email, telefon: k.telefon || '', rolle: k.rolle },
           reisen: meine.map(r => ({
             id: r.id, titel: r.titel.de, ort: r.ort.de, von: r.von, bis: r.bis, zeitraum: zeitraum(r.von, r.bis), pfad: retreatPfad(r.slug, 'de'),
@@ -229,6 +234,16 @@ export default async (req) => {
       return new Response(buf, { headers: { ...SICHERHEIT, 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${d.name.replace(/[^\w.\- äöüÄÖÜß]/g, '')}"`, 'cache-control': 'private, no-store' } });
     }
 
+    if (p === '/rechnung/ansehen' && m === 'GET') {
+      const rid = u.searchParams.get('id') || '';
+      const r = await B.rechnung(rid); if (!r) return json({ fehler: 'Nicht gefunden.' }, 404);
+      const ich = await wer(req);
+      const admin = ich?.rolle === 'admin';
+      if (!admin && !B.linkPruefen(rid, u.searchParams.get('t')) && !(ich && ich.email === r.email)) return json({ fehler: 'Kein Zugriff.' }, 403);
+      const E = await B.reEinstellungen(); const ret = (await D.retreats()).find(x => x.id === r.retreatId);
+      return new Response(B.rechnungHtml(r, E, ret, { admin }), { headers: { ...SICHERHEIT, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex' } });
+    }
+
     // ================= Verwaltung (nur admin) =================
     if (p.startsWith('/v/')) {
       const { k: admin, fehler } = await brauche(req, 'admin'); if (fehler) return fehler;
@@ -261,6 +276,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
   const b = m === 'GET' ? {} : (req.headers.get('content-type') || '').startsWith('application/json') ? await body(req) : null;
 
   if (p === '/status' && m === 'GET') {
+    try { await B.beispieleAnlegen(); } catch (e) { console.error('Beispiele', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
@@ -272,6 +288,8 @@ async function verwaltung(req, p, m, admin, seite, u) {
       kontakteAktiv: kt.filter(x => x.status === 'aktiv').length, stimmenOffen: st.filter(s => !s.freigegeben).length,
       reisen: rs.map(r => ({ id: r.id, titel: r.titel.de, zeitraum: zeitraum(r.von, r.bis), status: r.status, von: r.von, angemeldet: ko.filter(x => (x.retreats || []).includes(r.id)).length })),
       besuche30: stat.reduce((s, t) => s + t.summe, 0), besucheTage: stat.map(t => ({ tag: t.tag, n: t.summe })),
+      zahlungen: await (async () => { const E = await B.reEinstellungen(); const l = (await B.rechnungen()).map(r => B.auswerten(r, E)).filter(r => !r.storniert && r.status !== 'entwurf');
+        return { offen: l.filter(r => r.offen > 0).reduce((s, r) => s + r.offen, 0), ueberfaellig: l.filter(r => r.status === 'ueberfaellig').length, mahnbar: l.filter(r => r.naechste?.jetzt).length }; })(),
     });
   }
 
@@ -386,10 +404,88 @@ async function verwaltung(req, p, m, admin, seite, u) {
   if (p === '/anfragen' && m === 'GET') return json(await D.anfragen());
   if (p === '/anfrage' && m === 'POST') {
     const a = await D.anfrage(b.id); if (!a) return json({ fehler: 'Nicht gefunden.' }, 404);
-    if (['neu', 'in-arbeit', 'erledigt'].includes(b.status)) a.status = b.status;
+    if (['neu', 'in-arbeit', 'angenommen', 'warteliste', 'abgelehnt', 'gebucht', 'erledigt'].includes(b.status)) { if (a.status !== b.status) a.verlauf = [...(a.verlauf || []), { zeit: jetzt(), was: 'Status: ' + b.status, wer: admin.name || admin.email }]; a.status = b.status; }
     if (typeof b.notiz === 'string') a.notiz = b.notiz.slice(0, 2000);
+    if (typeof b.adresse === 'string') a.adresse = b.adresse.slice(0, 400);
     await D.anfrageSpeichern(a); return json({ ok: true });
   }
+  // ---- Abwicklung: Entscheidung, Rechnungen, Zahlungen, Mahnwesen ----
+  const wername = admin.name || admin.email || 'Verwaltung';
+  if (p === '/anfrage/entscheiden' && m === 'POST') {
+    const a = await D.anfrage(b.id); if (!a) return json({ fehler: 'Nicht gefunden.' }, 404);
+    const e = b.entscheidung; if (!['annehmen', 'ablehnen', 'warteliste'].includes(e)) return json({ fehler: 'Unbekannte Entscheidung.' }, 400);
+    const rs = await D.retreats(); const ret = rs.find(x => x.id === (b.retreatId || a.retreatId));
+    if (typeof b.adresse === 'string') a.adresse = b.adresse.slice(0, 400);
+    a.status = { annehmen: 'angenommen', ablehnen: 'abgelehnt', warteliste: 'warteliste' }[e];
+    if (ret) { a.retreatId = ret.id; a.retreat = a.retreat || ret.titel.de; }
+    a.verlauf = [...(a.verlauf || []), { zeit: jetzt(), was: { annehmen: 'Angenommen', ablehnen: 'Abgelehnt', warteliste: 'Auf die Warteliste gesetzt' }[e], wer: wername }];
+    await D.anfrageSpeichern(a);
+    let rechnungId = '', einladung = '';
+    if (e === 'annehmen' && b.rechnung && ret) rechnungId = (await B.rechnungErstellen({ anfrage: a, retreat: ret, art: 'anzahlung', preis: Number(b.preis) || 0, beispiel: a.beispiel }, wername)).id;
+    if (e === 'annehmen' && b.zugang && !a.beispiel && emailOk(a.email)) {
+      let k = await D.kontoNachMail(a.email);
+      k = k || { id: id(9), email: a.email, angelegt: jetzt(), sitzungVersion: 1, aktiv: true, rolle: 'teilnehmerin', name: a.name };
+      k.retreats = [...new Set([...(k.retreats || []), ...(ret ? [ret.id] : [])])];
+      if (!k.hash) { einladung = `${seite}/einladung?t=${neueEinladung(k)}`; }
+      await D.kontoSpeichern(k);
+    }
+    await D.protokoll(wername, `Anfrage ${a.status}`);
+    return json({ ok: true, rechnungId, einladung, zugangSchonDa: e === 'annehmen' && b.zugang && !einladung && !a.beispiel });
+  }
+  if (p === '/buchungen' && m === 'GET') {
+    const E = await B.reEinstellungen(); const rs = await D.retreats();
+    return json({ einstellungen: E, mail: mailBereit(), retreats: rs.map(r => ({ id: r.id, titel: r.titel.de, preis: r.preis?.de || '', preisBetrag: B.preisAusText(r.preis?.de) })),
+      rechnungen: (await B.rechnungen()).map(r => ({ ...B.auswerten(r, E), link: B.rechnungsLink(r, seite) })) });
+  }
+  if (p === '/buchungen/einstellungen' && m === 'POST') { await B.reEinstellungenSpeichern(b); await D.protokoll(wername, 'Rechnungseinstellungen gespeichert'); return json({ ok: true }); }
+  if (p === '/rechnung/neu' && m === 'POST') {
+    const a = b.anfrageId ? await D.anfrage(b.anfrageId) : null;
+    const ret = (await D.retreats()).find(x => x.id === (b.retreatId || a?.retreatId));
+    if (!kurz(b.name || a?.name)) return json({ fehler: 'Bitte einen Namen angeben.' }, 400);
+    const r = await B.rechnungErstellen({ anfrage: a, name: b.name, email: b.email, adresse: b.adresse, retreat: ret, art: b.art, preis: Number(b.preis) || 0, positionen: b.positionen, beispiel: a?.beispiel }, wername);
+    return json({ ok: true, id: r.id });
+  }
+  if (p.startsWith('/rechnung/') && m === 'POST') {
+    const r = await B.rechnung(b.id); if (!r) return json({ fehler: 'Rechnung nicht gefunden.' }, 404);
+    const E = await B.reEinstellungen();
+    if (p === '/rechnung/aendern') {
+      for (const f of ['name', 'email', 'adresse', 'notiz']) if (typeof b[f] === 'string') r[f] = b[f].slice(0, f === 'adresse' || f === 'notiz' ? 600 : 200);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(b.faellig || '')) r.faellig = b.faellig;
+      if (Array.isArray(b.positionen) && !r.versandt) r.positionen = b.positionen.map(x => ({ text: kurz(x.text, 300), betrag: Math.round(Number(x.betrag) * 100) / 100 || 0 })).filter(x => x.text);
+      r.verlauf = [...(r.verlauf || []), { zeit: jetzt(), was: 'Rechnung bearbeitet', wer: wername }];
+    } else if (p === '/rechnung/zahlung') {
+      const betrag = Math.round(Number(String(b.betrag).replace(',', '.')) * 100) / 100;
+      if (!(betrag > 0)) return json({ fehler: 'Bitte einen Betrag größer 0 eingeben.' }, 400);
+      r.zahlungen = [...(r.zahlungen || []), { id: id(5), datum: /^\d{4}-\d{2}-\d{2}$/.test(b.datum || '') ? b.datum : B.heute(), betrag, notiz: kurz(b.notiz, 120) }];
+      r.verlauf = [...(r.verlauf || []), { zeit: jetzt(), was: `Zahlung ${B.euro(betrag)} erfasst`, wer: wername }];
+      if (B.auswerten(r, E).offen <= 0 && r.anfrageId) { const a = await D.anfrage(r.anfrageId); if (a && a.status === 'angenommen' && r.art !== 'anzahlung') { a.status = 'gebucht'; await D.anfrageSpeichern(a); } }
+    } else if (p === '/rechnung/zahlung/loeschen') {
+      r.zahlungen = (r.zahlungen || []).filter(z => z.id !== b.zid);
+      r.verlauf = [...(r.verlauf || []), { zeit: jetzt(), was: 'Zahlung entfernt', wer: wername }];
+    } else if (p === '/rechnung/storno') {
+      r.storniert = jetzt(); r.verlauf = [...(r.verlauf || []), { zeit: jetzt(), was: 'Storniert', wer: wername }];
+    } else if (p === '/rechnung/versandt') {
+      r.versandt = r.versandt || jetzt(); r.verlauf = [...(r.verlauf || []), { zeit: jetzt(), was: 'Als versendet markiert', wer: wername }];
+    } else if (p === '/rechnung/loeschen') {
+      if (!r.beispiel) return json({ fehler: 'Echte Rechnungen müssen aufbewahrt werden (7 Jahre). Bitte stornieren statt löschen.' }, 400);
+      await (await import('../../lib/store.mjs')).store().then(s => s.del('rechnung/' + r.id)); return json({ ok: true });
+    } else return json({ fehler: 'Nicht gefunden.' }, 404);
+    await B.rechnungSpeichern(r); await D.protokoll(wername, `Rechnung ${r.nr}: ${p.split('/').pop()}`);
+    return json({ ok: true });
+  }
+  if ((p === '/mail/vorschau' || p === '/mail/senden') && m === 'POST') {
+    if (!B.NAMEN[b.art]) return json({ fehler: 'Unbekannte Vorlage.' }, 400);
+    const a = b.anfrageId ? await D.anfrage(b.anfrageId) : null;
+    const r = b.rechnungId ? await B.rechnung(b.rechnungId) : null;
+    const rs = await D.retreats(); const ret = rs.find(x => x.id === (r?.retreatId || a?.retreatId));
+    const E = await B.reEinstellungen();
+    if (p === '/mail/vorschau') return json({ ...(await B.mailVorlage(b.art, { anfrage: a, rechnung: r, retreat: ret, einladung: kurz(b.einladung, 400), seite, E })), mail: mailBereit(), beispiel: !!(a?.beispiel || r?.beispiel) });
+    if (!emailOk(b.an)) return json({ fehler: 'Bitte eine gültige Empfängeradresse angeben.' }, 400);
+    const e = await B.mailAbschicken({ art: b.art, anfrage: a, rechnung: r, an: b.an.trim(), betreff: kurz(b.betreff, 200), text: kurz(b.text, 8000), manuell: !!b.manuell, wer: wername, seite });
+    if (!e.ok) return json({ fehler: e.fehler }, 400);
+    return json({ ok: true, weg: e.weg });
+  }
+  if (p === '/beispiele/entfernen' && m === 'POST') { const n = await B.beispieleEntfernen(); await D.protokoll(wername, `${n} Beispieldatensätze entfernt`); return json({ ok: true, n }); }
   if (p === '/anfrage/loeschen' && m === 'POST') { await D.anfrageLoeschen(b.id); await D.protokoll(admin.email, 'Anfrage gelöscht'); return json({ ok: true }); }
 
   // ---- Konten ----

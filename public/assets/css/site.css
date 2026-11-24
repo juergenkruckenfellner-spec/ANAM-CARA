@@ -513,3 +513,4 @@ main,.fuss{overflow-x:clip}
 .werte__wort{display:block;font-family:var(--anzeige,inherit);font-weight:500;font-size:1.15em;letter-spacing:.02em;margin-bottom:4px}
 .werte .fuerwen__liste p:first-letter{font-family:inherit;color:inherit;font-size:inherit}
 .werte .werte__wort{color:var(--orange-tief)}
+.nw{white-space:nowrap}

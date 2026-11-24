@@ -4,7 +4,7 @@
   const main = $('#inhalt'), nav = $('#vnav');
   let S = { status: null, bilder: [], retreats: [], ungespeichert: false };
   const BEREICHE = [
-    ['uebersicht', 'Übersicht'], ['anfragen', 'Anfragen'], ['reisen', 'Reisen & Termine'], ['teilnehmerinnen', 'Teilnehmerinnen'],
+    ['uebersicht', 'Übersicht'], ['anfragen', 'Anfragen'], ['buchungen', 'Buchungen & Zahlungen'], ['reisen', 'Reisen & Termine'], ['teilnehmerinnen', 'Teilnehmerinnen'],
     ['texte', 'Texte'], ['bilder', 'Bilder'], ['stimmen', 'Rückmeldungen'], ['newsletter', 'Newsletter'],
     ['sichtbarkeit', 'Besuche & Google'], ['einstellungen', 'Einstellungen'], ['sicherung', 'Sicherung'],
   ];
@@ -34,7 +34,7 @@
   const ANSICHT = {};
   ANSICHT.uebersicht = async () => {
     const [u, chk] = await Promise.all([api('/v/uebersicht'), api('/v/check')]);
-    S.zaehler = { anfragen: u.anfragenNeu, stimmen: u.stimmenOffen }; navZeichnen('uebersicht', S.zaehler);
+    S.zaehler = { anfragen: u.anfragenNeu, stimmen: u.stimmenOffen, buchungen: u.zahlungen.mahnbar }; navZeichnen('uebersicht', S.zaehler);
     const max = Math.max(1, ...u.besucheTage.map(t => t.n));
     const rot = chk.befunde.filter(b => b.stufe === 'rot');
     main.innerHTML = kopf(`Guten ${new Date().getHours() < 11 ? 'Morgen' : 'Tag'}, ${esc(S.status.ich.name.split(' ')[0])}`, `<a class="knopf knopf--leise" href="/" target="_blank" rel="noopener">Website ansehen</a>`) +
@@ -42,7 +42,7 @@
       (rot.length ? `<div class="hinweisbox"><strong>Vor dem Start erledigen:</strong><ul>${rot.map(b => `<li>${esc(b.text)}</li>`).join('')}</ul></div>` : '') +
       `<div class="raster3">
         <a class="karte" href="#anfragen"><span class="zahl">${u.anfragenNeu}</span><br><span class="zahl-beschr">neue Anfragen</span></a>
-        <a class="karte" href="#newsletter"><span class="zahl">${u.kontakteAktiv}</span><br><span class="zahl-beschr">Newsletter-Empfängerinnen</span></a>
+        <a class="karte" href="#buchungen"><span class="zahl ${u.zahlungen.ueberfaellig ? 'zahl--rot' : ''}">${(u.zahlungen.offen || 0).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</span><br><span class="zahl-beschr">offene Zahlungen${u.zahlungen.ueberfaellig ? ` · ${u.zahlungen.ueberfaellig} überfällig` : ''}</span></a>
         <a class="karte" href="#sichtbarkeit"><span class="zahl">${u.besuche30}</span><br><span class="zahl-beschr">Besuche in 30 Tagen</span></a>
       </div>
       <div class="raster2">
@@ -54,32 +54,235 @@
     $$('.balken span').forEach(s => s.style.height = s.dataset.h + '%');
   };
 
+  // ===================== Mail-Dialog (gemeinsam für Anfragen und Buchungen) =====================
+  const euro = n => (Number(n) || 0).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' });
+  const ST_RE = { entwurf: ['Noch nicht versendet', ''], offen: ['Offen', 'etikett--neu'], teilbezahlt: ['Teilweise bezahlt', 'etikett--neu'], ueberfaellig: ['Überfällig', 'etikett--rot'], bezahlt: ['Bezahlt', 'etikett--gruen'], storniert: ['Storniert', ''] };
+  async function mailDialog({ art, anfrageId, rechnungId, einladung, titel }) {
+    const v = await api('/v/mail/vorschau', { art, anfrageId, rechnungId, einladung });
+    return new Promise(fertig => {
+      const d = document.createElement('dialog');
+      d.innerHTML = `<div class="dlg-kopf"><strong>${esc(titel || 'Nachricht senden')}</strong><button type="button" class="knopf knopf--leise knopf--klein" data-zu>Schließen</button></div>
+        <form class="dlg-rumpf" novalidate>
+          ${v.beispiel ? '<div class="hinweisbox">Das ist ein <strong>Beispiel</strong> mit erfundener Adresse. Du kannst den Text ansehen und „im eigenen Mailprogramm“ testen; verschickt wird nichts.</div>' : ''}
+          ${!v.mail && !v.beispiel ? '<div class="hinweisbox">Der automatische Mailversand ist noch nicht eingerichtet. Mit <strong>Im eigenen Mailprogramm öffnen</strong> geht die Nachricht trotzdem sofort hinaus und wird hier als gesendet vermerkt.</div>' : ''}
+          <div class="feld"><label for="md-an">An</label><input id="md-an" name="an" type="email" value="${esc(v.an)}"></div>
+          <div class="feld"><label for="md-b">Betreff</label><input id="md-b" name="betreff" value="${esc(v.betreff)}"></div>
+          <div class="feld"><label for="md-t">Text <span class="feld__hinweis">kannst du frei anpassen</span></label><textarea id="md-t" name="text" rows="14">${esc(v.text)}</textarea></div>
+          <p class="reihe">${v.mail && !v.beispiel ? '<button class="knopf" data-senden>Jetzt senden</button>' : ''}<a class="knopf ${v.mail && !v.beispiel ? 'knopf--leise' : ''}" data-mailto href="#">Im eigenen Mailprogramm öffnen</a><button type="button" class="knopf knopf--leise" data-zu>Nicht senden</button></p>
+        </form>`;
+      document.body.append(d); d.showModal();
+      const f = $('form', d);
+      const zu = ok => { d.close(); d.remove(); fertig(ok); };
+      $$('[data-zu]', d).forEach(x => x.onclick = () => zu(false));
+      const daten = manuell => ({ art, anfrageId, rechnungId, an: f.an.value, betreff: f.betreff.value, text: f.text.value, manuell });
+      const sb = $('[data-senden]', d); if (sb) sb.onclick = async e => { e.preventDefault(); sb.disabled = true; try { await api('/v/mail/senden', daten(false)); meldung('Gesendet.'); zu(true); } catch (er) { sb.disabled = false; meldung(er.message, true); } };
+      $('[data-mailto]', d).onclick = async e => {
+        e.preventDefault();
+        location.href = `mailto:${encodeURIComponent(f.an.value)}?subject=${encodeURIComponent(f.betreff.value)}&body=${encodeURIComponent(f.text.value)}`;
+        if (v.beispiel) { meldung('Beispiel: nichts vermerkt.'); return zu(false); }
+        if (confirm('Hast du die Nachricht in deinem Mailprogramm abgeschickt? Dann wird sie hier als gesendet vermerkt.')) { try { await api('/v/mail/senden', daten(true)); meldung('Als gesendet vermerkt.'); zu(true); } catch (er) { meldung(er.message, true); } }
+      };
+    });
+  }
+
   // ===================== Anfragen =====================
+  const ST_AN = [['neu', 'Neu'], ['in-arbeit', 'In Arbeit'], ['angenommen', 'Angenommen'], ['warteliste', 'Warteliste'], ['abgelehnt', 'Abgelehnt'], ['gebucht', 'Gebucht & bezahlt'], ['erledigt', 'Erledigt']];
+  const stKlasse = st => ({ neu: 'etikett--neu', angenommen: 'etikett--gruen', gebucht: 'etikett--gruen', abgelehnt: 'etikett--rot' }[st] || '');
   ANSICHT.anfragen = async () => {
-    const liste = await api('/v/anfragen'); let filter = 'offen';
+    const [liste, bu] = await Promise.all([api('/v/anfragen'), api('/v/buchungen')]); let filter = 'offen';
     const zeichnen = () => {
-      const l = liste.filter(a => filter === 'alle' || (filter === 'offen' ? a.status !== 'erledigt' : a.art === filter));
-      main.innerHTML = kopf('Anfragen') + `<div class="gruppen" role="group" aria-label="Filter">${[['offen', 'Offen'], ['alle', 'Alle'], ...Object.entries(ARTEN)].map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${t}</button>`).join('')}</div>` +
-        (l.length ? l.map(a => `<article class="karte" data-id="${a.id}">
-          <div class="reihe"><span class="etikett ${a.status === 'neu' ? 'etikett--neu' : a.status === 'erledigt' ? 'etikett--gruen' : ''}">${ARTEN[a.art] || a.art}</span><strong>${esc(a.name)}</strong><span class="klein">${esc(zeit(a.zeit))}${a.sprache === 'en' ? ' · Englisch' : ''}</span></div>
-          <p class="klein"><a href="mailto:${esc(a.email)}?subject=${encodeURIComponent('Deine Anfrage bei Anam Cara')}">${esc(a.email)}</a>${a.telefon ? ` · <a href="tel:${esc(a.telefon.replace(/[^+\d]/g, ''))}">${esc(a.telefon)}</a>` : ''}${a.retreat ? ' · ' + esc(a.retreat) : ''}${a.wann ? ' · Gesprächszeit: ' + esc(a.wann) : ''}${a.newsletter ? ' · möchte Newsletter' : ''}</p>
+      const l = liste.filter(a => filter === 'alle' || (filter === 'offen' ? !['erledigt', 'abgelehnt', 'gebucht'].includes(a.status) : ARTEN[filter] ? a.art === filter : a.status === filter));
+      main.innerHTML = kopf('Anfragen', liste.some(a => a.beispiel) ? '<button class="knopf knopf--leise knopf--klein" id="bsp-weg">Beispieldaten entfernen</button>' : '') +
+        `<div class="gruppen" role="group" aria-label="Filter">${[['offen', 'Offen'], ['alle', 'Alle'], ['angenommen', 'Angenommen'], ['warteliste', 'Warteliste'], ...Object.entries(ARTEN)].map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${t}</button>`).join('')}</div>` +
+        (l.length ? l.map(a => {
+          const re = bu.rechnungen.filter(r => r.anfrageId === a.id);
+          const st = ST_AN.find(x => x[0] === (a.status || 'neu')) || ST_AN[0];
+          const entscheidbar = !['teilnehmerin', 'warte'].includes(a.art);
+          return `<article class="karte" data-id="${a.id}">
+          <div class="reihe"><span class="etikett ${stKlasse(a.status)}">${st[1]}</span><span class="etikett">${ARTEN[a.art] || a.art}</span>${a.beispiel ? '<span class="etikett">Beispiel</span>' : ''}<strong>${esc(a.name)}</strong><span class="klein">${esc(zeit(a.zeit))}${a.sprache === 'en' ? ' · Englisch' : ''}</span></div>
+          <p class="klein"><a href="mailto:${esc(a.email)}">${esc(a.email)}</a>${a.telefon ? ` · <a href="tel:${esc(a.telefon.replace(/[^+\d]/g, ''))}">${esc(a.telefon)}</a>` : ''}${a.retreat ? ' · ' + esc(a.retreat) : ''}${a.wann ? ' · Gesprächszeit: ' + esc(a.wann) : ''}${a.newsletter ? ' · möchte Newsletter' : ''}</p>
           ${a.nachricht ? `<div>${absaetze(a.nachricht)}</div>` : ''}
-          <div class="raster2"><div class="feld"><label for="n-${a.id}">Interne Notiz</label><textarea id="n-${a.id}" rows="2" data-notiz>${esc(a.notiz || '')}</textarea></div>
-          <div class="feld"><label for="s-${a.id}">Status</label><select id="s-${a.id}" data-status>${[['neu', 'Neu'], ['in-arbeit', 'In Arbeit'], ['erledigt', 'Erledigt']].map(([k, t]) => `<option value="${k}"${a.status === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div></div>
-          <p class="reihe"><a class="knopf knopf--klein" href="mailto:${esc(a.email)}?subject=${encodeURIComponent('Deine Anfrage bei Anam Cara')}">Antworten</a>${a.art !== 'teilnehmerin' ? `<a class="knopf knopf--leise knopf--klein" href="#teilnehmerinnen/einladen?name=${encodeURIComponent(a.name)}&email=${encodeURIComponent(a.email)}">Als Teilnehmerin einladen</a>` : ''}<button class="knopf knopf--leise knopf--klein" data-speichern>Speichern</button><button class="knopf knopf--leise knopf--klein" data-loeschen>Löschen</button></p>
-        </article>`).join('') : '<p class="leer">Keine Anfragen in dieser Ansicht.</p>') +
-        `<p class="klein">Anfragen werden nach ${'{frist}'} Monaten automatisch gelöscht (einstellbar unter Einstellungen).</p>`;
-      $$('.gruppen button').forEach(b => b.onclick = () => { filter = b.dataset.f; zeichnen(); });
+          ${entscheidbar ? `<p class="reihe entscheiden">
+            <button class="knopf knopf--klein" data-ent="annehmen">Annehmen</button>
+            <button class="knopf knopf--leise knopf--klein" data-ent="warteliste">Warteliste</button>
+            <button class="knopf knopf--leise knopf--klein" data-ent="ablehnen">Ablehnen</button>
+            <button class="knopf knopf--leise knopf--klein" data-mail="eingang">Eingang bestätigen</button></p>` : `<p class="reihe"><button class="knopf knopf--leise knopf--klein" data-mail="eingang">Eingang bestätigen</button></p>`}
+          ${re.length ? `<div class="unterkarte"><strong>Rechnungen</strong>${re.map(r => `<p class="reihe"><span class="etikett ${ST_RE[r.status][1]}">${ST_RE[r.status][0]}</span><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.nr)}</a><span>${euro(r.summe)}</span>${r.offen > 0 && !r.storniert ? `<span class="klein">offen ${euro(r.offen)}</span>` : ''}</p>`).join('')}<a class="pfeil" href="#buchungen">Zu Buchungen & Zahlungen</a></div>` : ''}
+          <details class="klappe"><summary>Notiz, Status, Anschrift${a.verlauf?.length ? ' und Verlauf' : ''}</summary>
+          <div class="raster3"><div class="feld"><label for="n-${a.id}">Interne Notiz</label><textarea id="n-${a.id}" rows="3" data-notiz>${esc(a.notiz || '')}</textarea></div>
+          <div class="feld"><label for="ad-${a.id}">Rechnungsanschrift</label><textarea id="ad-${a.id}" rows="3" data-adresse placeholder="Name&#10;Straße&#10;PLZ Ort">${esc(a.adresse || '')}</textarea></div>
+          <div class="feld"><label for="s-${a.id}">Status</label><select id="s-${a.id}" data-status>${ST_AN.map(([k, t]) => `<option value="${k}"${(a.status || 'neu') === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div></div>
+          ${a.verlauf?.length ? `<ul class="verlauf">${a.verlauf.slice().reverse().map(v => `<li><span class="klein">${esc(zeit(v.zeit))}</span> ${esc(v.was)}${v.wer ? ` <span class="klein">· ${esc(v.wer)}</span>` : ''}</li>`).join('')}</ul>` : ''}
+          <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-speichern>Speichern</button>${a.art !== 'teilnehmerin' ? `<a class="knopf knopf--leise knopf--klein" href="#teilnehmerinnen/einladen?name=${encodeURIComponent(a.name)}&email=${encodeURIComponent(a.email)}">Als Teilnehmerin einladen</a>` : ''}<button class="knopf knopf--leise knopf--klein" data-loeschen>Löschen</button></p></details>
+        </article>`; }).join('') : '<p class="leer">Keine Anfragen in dieser Ansicht.</p>') +
+        `<p class="klein">Anfragen werden nach ${'{frist}'} Monaten automatisch gelöscht (einstellbar unter Einstellungen). Rechnungen bleiben 7 Jahre erhalten.</p>`;
+      $$('.gruppen button').forEach(x => x.onclick = () => { filter = x.dataset.f; zeichnen(); });
+      const weg = $('#bsp-weg'); if (weg) weg.onclick = () => confirm('Alle Beispiel-Anfragen und Beispiel-Rechnungen entfernen?') && sicher(async () => { await api('/v/beispiele/entfernen', {}); ANSICHT.anfragen(); }, 'Beispieldaten entfernt.');
       $$('article[data-id]').forEach(art => {
         const a = liste.find(x => x.id === art.dataset.id);
-        $('[data-speichern]', art).onclick = () => sicher(async () => { a.notiz = $('[data-notiz]', art).value; a.status = $('[data-status]', art).value; await api('/v/anfrage', { id: a.id, status: a.status, notiz: a.notiz }); zeichnen(); }, 'Gespeichert.');
-        $('[data-status]', art).onchange = $('[data-speichern]', art).onclick;
+        const neuLaden = async () => { const [l2, b2] = await Promise.all([api('/v/anfragen'), api('/v/buchungen')]); liste.splice(0, liste.length, ...l2); bu.rechnungen = b2.rechnungen; zeichnen(); };
+        $('[data-speichern]', art).onclick = () => sicher(async () => { await api('/v/anfrage', { id: a.id, status: $('[data-status]', art).value, notiz: $('[data-notiz]', art).value, adresse: $('[data-adresse]', art).value }); await neuLaden(); }, 'Gespeichert.');
         $('[data-loeschen]', art).onclick = () => confirm(`Anfrage von ${a.name} endgültig löschen?`) && sicher(async () => { await api('/v/anfrage/loeschen', { id: a.id }); liste.splice(liste.indexOf(a), 1); zeichnen(); }, 'Gelöscht.');
+        $$('[data-mail]', art).forEach(x => x.onclick = async () => { if (await mailDialog({ art: x.dataset.mail, anfrageId: a.id, titel: 'Eingangsbestätigung an ' + a.name })) neuLaden(); });
+        $$('[data-ent]', art).forEach(x => x.onclick = () => entscheiden(a, x.dataset.ent, bu, $('[data-adresse]', art).value).then(ok => ok && neuLaden()));
       });
       api('/v/inhalt').then(i => { const p = $$('.klein', main).pop(); if (p) p.textContent = p.textContent.replace('{frist}', i.einstellungen.fristen.anfragenMonate); });
     };
     zeichnen();
   };
+
+  // Annehmen / Warteliste / Ablehnen – mit Zusage, Rechnung über die Anzahlung und Zugang zum Teilnehmerinnen-Bereich
+  function entscheiden(a, ent, bu, adresse) {
+    return new Promise(fertig => {
+      const ret = bu.retreats; const E = bu.einstellungen;
+      const d = document.createElement('dialog');
+      const titel = { annehmen: `Anfrage von ${a.name} annehmen`, warteliste: `${a.name} auf die Warteliste setzen`, ablehnen: `Anfrage von ${a.name} ablehnen` }[ent];
+      d.innerHTML = `<div class="dlg-kopf"><strong>${esc(titel)}</strong><button type="button" class="knopf knopf--leise knopf--klein" data-zu>Abbrechen</button></div>
+        <form class="dlg-rumpf" novalidate>
+          ${ent === 'annehmen' ? `<div class="raster2">
+            <div class="feld"><label for="e-r">Reise</label><select id="e-r" name="retreatId">${ret.map(r => `<option value="${esc(r.id)}" data-preis="${r.preisBetrag}"${r.id === a.retreatId ? ' selected' : ''}>${esc(r.titel)}</option>`).join('')}</select></div>
+            <div class="feld"><label for="e-p">Reisepreis in € <span class="feld__hinweis">Anzahlung ${E.anzahlungProzent} % wird berechnet</span></label><input id="e-p" name="preis" inputmode="decimal" value="${ret.find(r => r.id === a.retreatId)?.preisBetrag || ret[0]?.preisBetrag || ''}"></div></div>
+            <div class="feld"><label for="e-a">Rechnungsanschrift</label><textarea id="e-a" name="adresse" rows="3" placeholder="${esc(a.name)}&#10;Straße&#10;PLZ Ort">${esc(adresse || a.adresse || '')}</textarea></div>
+            <label class="haken"><input type="checkbox" name="rechnung" checked><span>Rechnung über die Anzahlung erstellen und in der Zusage verlinken</span></label>
+            <label class="haken"><input type="checkbox" name="zugang" ${a.beispiel ? 'disabled' : 'checked'}><span>Zugang zum persönlichen Bereich anlegen (Reiseinfos, Packliste, Unterlagen, Rechnungen)</span></label>
+            <label class="haken"><input type="checkbox" name="mail" checked><span>Danach die Zusage-Nachricht öffnen</span></label>`
+          : `<p>${ent === 'ablehnen' ? 'Die Anfrage wird als abgelehnt markiert. Danach kannst du eine freundliche Absage schicken.' : 'Die Anfrage kommt auf die Warteliste. Wird ein Platz frei, findest du sie unter dem Filter „Warteliste“.'}</p>
+            <label class="haken"><input type="checkbox" name="mail" checked><span>Danach die Nachricht an ${esc(a.name)} öffnen</span></label>`}
+          <p class="reihe"><button class="knopf">${{ annehmen: 'Annehmen', warteliste: 'Auf Warteliste', ablehnen: 'Ablehnen' }[ent]}</button></p>
+        </form>`;
+      document.body.append(d); d.showModal();
+      const f = $('form', d); const zu = ok => { d.close(); d.remove(); fertig(ok); };
+      $('[data-zu]', d).onclick = () => zu(false);
+      if (f.retreatId) f.retreatId.onchange = () => { f.preis.value = f.retreatId.selectedOptions[0].dataset.preis || ''; };
+      f.onsubmit = async e => {
+        e.preventDefault();
+        try {
+          const r = await api('/v/anfrage/entscheiden', { id: a.id, entscheidung: ent, retreatId: f.retreatId?.value, preis: f.preis?.value.replace(/\./g, '').replace(',', '.'), adresse: f.adresse?.value, rechnung: f.rechnung?.checked, zugang: f.zugang?.checked });
+          const mailen = f.mail.checked; zu(true);
+          meldung({ annehmen: 'Angenommen.', warteliste: 'Auf der Warteliste.', ablehnen: 'Abgelehnt.' }[ent] + (r.zugangSchonDa ? ' Sie hat bereits einen Zugang; die Reise wurde ergänzt.' : ''));
+          if (mailen) await mailDialog({ art: { annehmen: 'zusage', warteliste: 'warteliste', ablehnen: 'absage' }[ent], anfrageId: a.id, rechnungId: r.rechnungId, einladung: r.einladung, titel: { annehmen: 'Zusage', warteliste: 'Wartelisten-Info', ablehnen: 'Absage' }[ent] + ' an ' + a.name });
+        } catch (er) { meldung(er.message, true); }
+      };
+    });
+  }
+
+  // ===================== Buchungen & Zahlungen =====================
+  ANSICHT.buchungen = async () => {
+    const bu = await api('/v/buchungen'); const E = bu.einstellungen; let filter = 'aktiv';
+    const zeichnen = () => {
+      const R = bu.rechnungen;
+      const aktiv = R.filter(r => !r.storniert && r.status !== 'entwurf');
+      const offen = aktiv.filter(r => r.offen > 0).reduce((s, r) => s + r.offen, 0);
+      const ueber = aktiv.filter(r => r.status === 'ueberfaellig');
+      const bezahlt = R.filter(r => !r.storniert).reduce((s, r) => s + r.bezahlt, 0);
+      const mahnbar = aktiv.filter(r => r.naechste?.jetzt);
+      const l = R.filter(r => filter === 'alle' || (filter === 'aktiv' ? !r.storniert && r.status !== 'bezahlt' : r.status === filter));
+      main.innerHTML = kopf('Buchungen & Zahlungen', `<button class="knopf knopf--klein" id="neu">Neue Rechnung</button>`) +
+        (!E.iban ? '<div class="hinweisbox">Bitte unten unter <strong>Rechnungsangaben</strong> die Bankverbindung eintragen – sie erscheint auf jeder Rechnung und in jeder Erinnerung.</div>' : '') +
+        (!bu.mail ? '<div class="hinweisbox">Der automatische Mailversand ist noch nicht eingerichtet. Rechnungen, Erinnerungen und Mahnungen kannst du trotzdem mit einem Klick in deinem eigenen Mailprogramm verschicken.</div>' : '') +
+        `<div class="raster3">
+          <div class="karte"><span class="zahl">${euro(offen)}</span><br><span class="zahl-beschr">offen</span></div>
+          <div class="karte"><span class="zahl ${ueber.length ? 'zahl--rot' : ''}">${ueber.length}</span><br><span class="zahl-beschr">überfällig${mahnbar.length ? ` · ${mahnbar.length} zum Erinnern fällig` : ''}</span></div>
+          <div class="karte"><span class="zahl">${euro(bezahlt)}</span><br><span class="zahl-beschr">eingegangen</span></div></div>
+        <div class="gruppen" role="group" aria-label="Filter">${[['aktiv', 'Offen & überfällig'], ['ueberfaellig', 'Überfällig'], ['entwurf', 'Nicht versendet'], ['bezahlt', 'Bezahlt'], ['storniert', 'Storniert'], ['alle', 'Alle']].map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${t}</button>`).join('')}</div>` +
+        (l.length ? l.map(r => `<article class="karte" data-id="${r.id}">
+          <div class="reihe"><span class="etikett ${ST_RE[r.status][1]}">${ST_RE[r.status][0]}</span>${r.beispiel ? '<span class="etikett">Beispiel</span>' : ''}<strong>${esc(r.name)}</strong><span class="klein">${esc(r.nr)} · ${esc(datum(r.datum))}${r.retreatTitel ? ' · ' + esc(r.retreatTitel) : ''}</span></div>
+          <div class="raster3 zahlen-zeile"><div><span class="zahl-beschr">Betrag</span><br><strong>${euro(r.summe)}</strong>${r.gebuehren ? ` <span class="klein">+ ${euro(r.gebuehren)} Mahnspesen</span>` : ''}</div>
+            <div><span class="zahl-beschr">Bezahlt</span><br><strong>${euro(r.bezahlt)}</strong></div>
+            <div><span class="zahl-beschr">${r.offen > 0 ? 'Offen · fällig' : 'Offen'}</span><br><strong class="${r.status === 'ueberfaellig' ? 'text-rot' : ''}">${euro(Math.max(0, r.offen))}</strong>${r.offen > 0 ? ` <span class="klein">· ${esc(datum(r.frist))}${r.tageUeber ? ` · ${r.tageUeber} Tage drüber` : ''}</span>` : ''}</div></div>
+          ${r.letzteStufe ? `<p class="klein">Zuletzt: ${esc({ erinnerung: 'Zahlungserinnerung', mahnung1: '1. Mahnung', mahnung2: '2. Mahnung' }[r.letzteStufe.stufe])} am ${esc(datum(r.letzteStufe.zeit))}</p>` : ''}
+          ${r.naechste && !r.storniert ? `<p class="klein">${r.naechste.jetzt ? '<strong>Jetzt fällig:</strong>' : 'Nächster Schritt ab ' + esc(datum(r.naechste.faelligAb)) + ':'} ${esc(r.naechste.name)}</p>` : ''}
+          <p class="reihe">
+            <a class="knopf knopf--leise knopf--klein" href="${esc(r.link)}" target="_blank" rel="noopener">Ansehen / PDF</a>
+            ${!r.storniert && r.offen > 0 ? `<button class="knopf knopf--klein" data-mail="rechnung">${r.versandt ? 'Erneut senden' : 'Rechnung senden'}</button><button class="knopf knopf--leise knopf--klein" data-zahlung>Zahlung erfassen</button>` : ''}
+            ${r.naechste && !r.storniert ? `<button class="knopf ${r.naechste.jetzt ? '' : 'knopf--leise'} knopf--klein" data-mail="${r.naechste.stufe}">${esc(r.naechste.name)} senden</button>` : ''}
+            ${r.bezahlt > 0 ? '<button class="knopf knopf--leise knopf--klein" data-mail="zahlung">Zahlung bestätigen</button>' : ''}
+          </p>
+          <details class="klappe"><summary>Bearbeiten, Zahlungen und Verlauf</summary>
+            <div class="raster2"><div class="feld"><label for="ra-${r.id}">Anschrift</label><textarea id="ra-${r.id}" rows="3" data-adresse>${esc(r.adresse)}</textarea></div>
+            <div><div class="feld"><label for="rf-${r.id}">Zahlbar bis</label><input id="rf-${r.id}" type="date" data-faellig value="${esc(r.faellig)}"></div><div class="feld"><label for="rm-${r.id}">E-Mail</label><input id="rm-${r.id}" type="email" data-email value="${esc(r.email)}"></div></div></div>
+            ${!r.versandt ? `<div class="feld"><label>Positionen <span class="feld__hinweis">eine pro Zeile: Text | Betrag</span></label><textarea rows="3" data-pos>${esc(r.positionen.map(p => p.text + ' | ' + String(p.betrag).replace('.', ',')).join('\n'))}</textarea></div>` : '<p class="klein">Versendete Rechnungen sind im Betrag gesperrt. Für Korrekturen stornieren und neu erstellen.</p>'}
+            ${r.zahlungen?.length ? `<table class="tabelle"><tr><th>Eingang</th><th>Betrag</th><th>Notiz</th><th></th></tr>${r.zahlungen.map(z => `<tr><td>${esc(datum(z.datum))}</td><td>${euro(z.betrag)}</td><td>${esc(z.notiz || '')}</td><td><button class="knopf knopf--leise knopf--klein" data-zweg="${esc(z.id)}">Entfernen</button></td></tr>`).join('')}</table>` : ''}
+            ${r.verlauf?.length ? `<ul class="verlauf">${r.verlauf.slice().reverse().map(v => `<li><span class="klein">${esc(zeit(v.zeit))}</span> ${esc(v.was)}${v.wer ? ` <span class="klein">· ${esc(v.wer)}</span>` : ''}</li>`).join('')}</ul>` : ''}
+            <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-speichern>Speichern</button>${!r.versandt && !r.storniert ? '<button class="knopf knopf--leise knopf--klein" data-versandt>Als versendet markieren</button>' : ''}${!r.storniert ? '<button class="knopf knopf--leise knopf--klein" data-storno>Stornieren</button>' : ''}${r.beispiel ? '<button class="knopf knopf--leise knopf--klein" data-loeschen>Beispiel löschen</button>' : ''}</p>
+          </details></article>`).join('') : '<p class="leer">Keine Rechnungen in dieser Ansicht.</p>') +
+        `<form class="karte" id="re-eins" novalidate><h2 class="h3">Rechnungsangaben & Mahnwesen</h2>
+          <div class="raster2">
+            <div class="feld"><label for="ee-a">Rechnungsausstellerin</label><input id="ee-a" data-e="aussteller" value="${esc(E.aussteller)}"></div>
+            <div class="feld"><label for="ee-m">E-Mail für Antworten</label><input id="ee-m" data-e="email" value="${esc(E.email)}"></div>
+            <div class="feld"><label for="ee-ad">Anschrift</label><textarea id="ee-ad" rows="3" data-e="adresse">${esc(E.adresse)}</textarea></div>
+            <div><div class="feld"><label for="ee-u">UID-Nummer <span class="feld__hinweis">falls vorhanden</span></label><input id="ee-u" data-e="uid" value="${esc(E.uid)}"></div><div class="feld"><label for="ee-p">Nummernkreis-Präfix</label><input id="ee-p" data-e="praefix" value="${esc(E.praefix)}"></div></div>
+            <div class="feld"><label for="ee-i">IBAN</label><input id="ee-i" data-e="iban" value="${esc(E.iban)}" placeholder="AT.."></div>
+            <div class="raster2"><div class="feld"><label for="ee-b">BIC</label><input id="ee-b" data-e="bic" value="${esc(E.bic)}"></div><div class="feld"><label for="ee-bk">Bank</label><input id="ee-bk" data-e="bank" value="${esc(E.bank)}"></div></div>
+            <div class="feld"><label for="ee-ust">Steuerhinweis auf der Rechnung</label><textarea id="ee-ust" rows="2" data-e="ustHinweis">${esc(E.ustHinweis)}</textarea></div>
+            <div class="feld"><label for="ee-f">Schlusssatz</label><textarea id="ee-f" rows="2" data-e="fuss">${esc(E.fuss)}</textarea></div>
+          </div>
+          <div class="raster3">
+            <div class="feld"><label for="ee-z">Zahlungsziel (Tage)</label><input id="ee-z" type="number" min="0" data-n="zielTage" value="${E.zielTage}"></div>
+            <div class="feld"><label for="ee-az">Anzahlung (%)</label><input id="ee-az" type="number" min="0" max="100" data-n="anzahlungProzent" value="${E.anzahlungProzent}"></div>
+            <div class="feld"><label for="ee-fr">Neue Frist nach Mahnung (Tage)</label><input id="ee-fr" type="number" min="1" data-n="fristTage" value="${E.fristTage}"></div>
+            <div class="feld"><label for="ee-e">Erinnerung … Tage nach Fälligkeit</label><input id="ee-e" type="number" min="0" data-n="erinnerungTage" value="${E.erinnerungTage}"></div>
+            <div class="feld"><label for="ee-m1">1. Mahnung nach … Tagen</label><input id="ee-m1" type="number" min="0" data-n="mahnung1Tage" value="${E.mahnung1Tage}"></div>
+            <div class="feld"><label for="ee-m2">2. Mahnung nach … Tagen</label><input id="ee-m2" type="number" min="0" data-n="mahnung2Tage" value="${E.mahnung2Tage}"></div>
+            <div class="feld"><label for="ee-g1">Mahnspesen 1. Mahnung (€)</label><input id="ee-g1" type="number" min="0" data-n="gebuehr1" value="${E.gebuehr1}"></div>
+            <div class="feld"><label for="ee-g2">Mahnspesen 2. Mahnung (€)</label><input id="ee-g2" type="number" min="0" data-n="gebuehr2" value="${E.gebuehr2}"></div>
+          </div>
+          <label class="haken"><input type="checkbox" id="ee-auto" ${E.auto ? 'checked' : ''}><span>Erinnerungen und Mahnungen automatisch per Mail senden (jede Nacht, höchstens eine Stufe pro Tag; nur wenn der Mailversand eingerichtet ist)</span></label>
+          <p class="reihe"><button class="knopf">Rechnungsangaben speichern</button></p></form>`;
+      $$('.gruppen button').forEach(x => x.onclick = () => { filter = x.dataset.f; zeichnen(); });
+      const neuLaden = async () => { Object.assign(bu, await api('/v/buchungen')); zeichnen(); };
+      $('#neu').onclick = () => neueRechnung(bu).then(ok => ok && neuLaden());
+      $('#re-eins').onsubmit = async e => { e.preventDefault(); const d = { auto: $('#ee-auto').checked }; $$('[data-e]', e.target).forEach(x => d[x.dataset.e] = x.value); $$('[data-n]', e.target).forEach(x => d[x.dataset.n] = x.value); await sicher(() => api('/v/buchungen/einstellungen', d), 'Gespeichert.'); neuLaden(); };
+      $$('article[data-id]').forEach(art => {
+        const r = R.find(x => x.id === art.dataset.id); const id = r.id;
+        $$('[data-mail]', art).forEach(x => x.onclick = async () => { if (await mailDialog({ art: x.dataset.mail, rechnungId: id, anfrageId: r.anfrageId || undefined, titel: x.textContent.trim() + ' · ' + r.name })) neuLaden(); });
+        const z = $('[data-zahlung]', art); if (z) z.onclick = () => zahlungDialog(r).then(ok => ok && neuLaden());
+        $('[data-speichern]', art).onclick = () => sicher(async () => {
+          const pos = $('[data-pos]', art)?.value.split('\n').map(x => x.split('|')).filter(x => x[0].trim()).map(([t, b]) => ({ text: t.trim(), betrag: Number(String(b || '0').trim().replace(/\./g, '').replace(',', '.')) }));
+          await api('/v/rechnung/aendern', { id, adresse: $('[data-adresse]', art).value, faellig: $('[data-faellig]', art).value, email: $('[data-email]', art).value, positionen: pos }); await neuLaden(); }, 'Gespeichert.');
+        const v = $('[data-versandt]', art); if (v) v.onclick = () => sicher(async () => { await api('/v/rechnung/versandt', { id }); await neuLaden(); }, 'Vermerkt.');
+        const st = $('[data-storno]', art); if (st) st.onclick = () => confirm(`Rechnung ${r.nr} stornieren? Sie bleibt zur Aufbewahrung erhalten.`) && sicher(async () => { await api('/v/rechnung/storno', { id }); await neuLaden(); }, 'Storniert.');
+        const lo = $('[data-loeschen]', art); if (lo) lo.onclick = () => sicher(async () => { await api('/v/rechnung/loeschen', { id }); await neuLaden(); }, 'Gelöscht.');
+        $$('[data-zweg]', art).forEach(x => x.onclick = () => confirm('Diese Zahlung entfernen?') && sicher(async () => { await api('/v/rechnung/zahlung/loeschen', { id, zid: x.dataset.zweg }); await neuLaden(); }, 'Entfernt.'));
+      });
+    };
+    zeichnen();
+  };
+  function zahlungDialog(r) {
+    return new Promise(fertig => {
+      const d = document.createElement('dialog');
+      d.innerHTML = `<div class="dlg-kopf"><strong>Zahlung erfassen · ${esc(r.nr)} · ${esc(r.name)}</strong><button type="button" class="knopf knopf--leise knopf--klein" data-zu>Abbrechen</button></div>
+        <form class="dlg-rumpf" novalidate><div class="raster3">
+          <div class="feld"><label for="z-b">Betrag in €</label><input id="z-b" name="betrag" inputmode="decimal" value="${String(r.offen).replace('.', ',')}"></div>
+          <div class="feld"><label for="z-d">Eingegangen am</label><input id="z-d" name="datum" type="date" value="${new Date().toISOString().slice(0, 10)}"></div>
+          <div class="feld"><label for="z-n">Notiz</label><input id="z-n" name="notiz" placeholder="z. B. Überweisung"></div></div>
+          <label class="haken"><input type="checkbox" name="mail" checked><span>Danach eine Zahlungsbestätigung öffnen</span></label>
+          <p class="reihe"><button class="knopf">Zahlung speichern</button></p></form>`;
+      document.body.append(d); d.showModal();
+      const f = $('form', d); const zu = ok => { d.close(); d.remove(); fertig(ok); };
+      $('[data-zu]', d).onclick = () => zu(false);
+      f.onsubmit = async e => { e.preventDefault(); try { await api('/v/rechnung/zahlung', { id: r.id, betrag: f.betrag.value.replace(/\.(?=\d{3})/g, ''), datum: f.datum.value, notiz: f.notiz.value }); const m = f.mail.checked; zu(true); meldung('Zahlung erfasst.'); if (m) await mailDialog({ art: 'zahlung', rechnungId: r.id, titel: 'Zahlungsbestätigung an ' + r.name }); } catch (er) { meldung(er.message, true); } };
+    });
+  }
+  function neueRechnung(bu) {
+    return new Promise(fertig => {
+      const d = document.createElement('dialog');
+      d.innerHTML = `<div class="dlg-kopf"><strong>Neue Rechnung</strong><button type="button" class="knopf knopf--leise knopf--klein" data-zu>Abbrechen</button></div>
+        <form class="dlg-rumpf" novalidate><div class="raster2">
+          <div class="feld"><label for="nr-n">Name</label><input id="nr-n" name="name" required></div>
+          <div class="feld"><label for="nr-m">E-Mail</label><input id="nr-m" name="email" type="email"></div>
+          <div class="feld"><label for="nr-a">Anschrift</label><textarea id="nr-a" name="adresse" rows="3"></textarea></div>
+          <div><div class="feld"><label for="nr-r">Reise</label><select id="nr-r" name="retreatId">${bu.retreats.map(r => `<option value="${esc(r.id)}" data-preis="${r.preisBetrag}">${esc(r.titel)}</option>`).join('')}<option value="">– keine –</option></select></div>
+          <div class="feld"><label for="nr-art">Art</label><select id="nr-art" name="art"><option value="anzahlung">Anzahlung (${bu.einstellungen.anzahlungProzent} %)</option><option value="rest">Restzahlung</option><option value="gesamt">Gesamtbetrag</option></select></div>
+          <div class="feld"><label for="nr-p">Reisepreis in €</label><input id="nr-p" name="preis" inputmode="decimal" value="${bu.retreats[0]?.preisBetrag || ''}"></div></div></div>
+          <p class="reihe"><button class="knopf">Rechnung erstellen</button></p></form>`;
+      document.body.append(d); d.showModal();
+      const f = $('form', d); const zu = ok => { d.close(); d.remove(); fertig(ok); };
+      $('[data-zu]', d).onclick = () => zu(false);
+      f.retreatId.onchange = () => { f.preis.value = f.retreatId.selectedOptions[0].dataset.preis || ''; };
+      f.onsubmit = async e => { e.preventDefault(); if (!f.name.value.trim()) return f.name.focus(); try { await api('/v/rechnung/neu', { name: f.name.value, email: f.email.value, adresse: f.adresse.value, retreatId: f.retreatId.value, art: f.art.value, preis: f.preis.value.replace(/\./g, '').replace(',', '.') }); zu(true); meldung('Rechnung erstellt. Sie ist noch nicht versendet.'); } catch (er) { meldung(er.message, true); } };
+    });
+  }
 
   // ===================== Reisen =====================
   const leer = () => ({ id: '', slug: '', veroeffentlicht: false, status: 'geplant', von: '', bis: '', plaetze: '', bild: '', titel: { de: '', en: '' }, ort: { de: '', en: '' }, kurz: { de: '', en: '' }, text: { de: '', en: '' }, ablauf: { de: '', en: '' }, leistungen: { de: '', en: '' }, preis: { de: 'auf Anfrage', en: 'on request' }, infos: '', packliste: [], dokumente: [], nachrichten: [] });
