@@ -1,6 +1,6 @@
 // Alle Schnittstellen unter /api/*. Rechte werden hier serverseitig geprüft (siehe lib/auth.mjs).
 import * as D from '../../lib/daten.mjs';
-import { SICHERHEIT, json, esc, id, sha, jetzt, emailOk, kurz, herkunftOk, seitenUrl, signieren, pruefen, hashKennwort, kennwortOk, kennwortRegel, env, zeitraum } from '../../lib/util.mjs';
+import { SICHERHEIT, json, esc, id, sha, jetzt, emailOk, kurz, herkunftOk, seitenUrl, signieren, pruefen, geheimnisBereit, hashKennwort, kennwortOk, kennwortRegel, env, zeitraum } from '../../lib/util.mjs';
 import { brauche, anmelden, codeBestaetigen, sitzungsCookie, abmeldeCookie, neueEinladung, wer } from '../../lib/auth.mjs';
 import { sende, rahmen, absatz, knopf, mailBereit } from '../../lib/mail.mjs';
 import { portion, briefHtml, abmeldeLink, signatur } from '../../lib/nl.mjs';
@@ -17,6 +17,7 @@ async function seitenNeu() {
   try { const { purgeCache } = await import('@netlify/cache'); await purgeCache({ tags: ['seiten'] }); } catch (e) { console.error('Cache leeren fehlgeschlagen', e.message); }
 }
 export default async (req) => {
+  await geheimnisBereit();
   const u = new URL(req.url);
   const p = u.pathname.replace(/^\/api/, '').replace(/\/+$/, '');
   const m = req.method;
@@ -109,7 +110,6 @@ export default async (req) => {
       if ((await D.konten()).some(x => x.rolle === 'admin')) return json({ fehler: 'Die Einrichtung ist bereits abgeschlossen.' }, 403);
       const soll = env('EINRICHTUNGS_CODE');
       if (!soll || soll.length < 12) return json({ fehler: 'Im Hosting ist noch kein Einrichtungscode hinterlegt. In Netlify die Umgebungsvariable EINRICHTUNGS_CODE anlegen und danach neu veröffentlichen (Deploys → Trigger deploy).' }, 503);
-      if (!env('SITZUNG_GEHEIMNIS') || env('SITZUNG_GEHEIMNIS').length < 32) return json({ fehler: 'Im Hosting fehlt noch die Umgebungsvariable SITZUNG_GEHEIMNIS (mind. 32 Zeichen). Bitte anlegen und neu veröffentlichen.' }, 503);
       const ok = soll && soll.length >= 12 && b.code && crypto.timingSafeEqual(Buffer.from(sha(String(b.code).trim())), Buffer.from(sha(soll.trim())));
       if (!ok) { await D.fehlversuch('i:' + ip(req)); return json({ fehler: 'Der Einrichtungscode stimmt nicht. Bitte ohne Leerzeichen davor oder danach eingeben.' }, 403); }
       const fehl = kennwortRegel(b.kennwort); if (fehl) return json({ fehler: fehl }, 400);
@@ -156,7 +156,7 @@ export default async (req) => {
       const b = await body(req);
       if (!kennwortOk(b.alt || '', k.hash)) return json({ fehler: 'Das bisherige Kennwort stimmt nicht.' }, 403);
       const fehl = kennwortRegel(b.neu); if (fehl) return json({ fehler: fehl }, 400);
-      k.hash = hashKennwort(b.neu); k.sitzungVersion = (k.sitzungVersion || 1) + 1;
+      k.hash = hashKennwort(b.neu); delete k.kennwortAendern; k.sitzungVersion = (k.sitzungVersion || 1) + 1;
       await D.kontoSpeichern(k); await D.protokoll(k.email, 'Kennwort geändert');
       return json({ ok: true }, 200, { 'set-cookie': sitzungsCookie(k) });
     }

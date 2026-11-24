@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const wurzel = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pub = path.join(wurzel, process.env.PUBLIC_DIR || 'public');
 process.env.DEV_STORE_DIR ||= path.join(wurzel, '.dev-daten');
-process.env.SITZUNG_GEHEIMNIS ||= 'lokal-nur-zum-testen-0123456789abcdefghij';
+if (!process.env.OHNE_GEHEIMNIS) process.env.SITZUNG_GEHEIMNIS ||= 'lokal-nur-zum-testen-0123456789abcdefghij';
 process.env.EINRICHTUNGS_CODE ||= 'einrichten-lokal-2026';
 process.env.MAIL_TESTMODUS ||= '1';
 process.env.BILD_CDN = '0';
