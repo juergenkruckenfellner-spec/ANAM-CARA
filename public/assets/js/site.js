@@ -109,6 +109,101 @@
     rauch(vorne, { anzahl: 18, alpha: .32, farbe: '205,198,186', quelle: (b, h) => ({ x: Math.random() < .5 ? Math.random() * b * .13 : b - Math.random() * b * .13, y: h + 30 }), hoehe: .95, groesse: [70, 170], tempo: [.35, .65] });
   }
 
+  // ---------- Oberer Bereich + Himmel: viele Schwaden, ziehende Wolken, Reaktion auf Maus/Finger ----------
+  // Bei „Bewegung reduzieren“ läuft alles stark verlangsamt statt gar nicht.
+  const tempoF = ruhig.matches ? .35 : 1;
+  const schmal = () => innerWidth < 700;
+  function wolkenSprites(farbe, n = 6) {
+    const liste = [];
+    for (let k = 0; k < n; k++) {
+      const c = d.createElement('canvas'); c.width = 512; c.height = 220; const x = c.getContext('2d');
+      if (nebelBild.complete && nebelBild.naturalWidth) {
+        const sx = Math.random() * (nebelBild.naturalWidth - 700), sy = 40 + Math.random() * 140;
+        x.drawImage(nebelBild, sx, sy, 700, 260, 0, 0, 512, 220);
+        x.globalCompositeOperation = 'source-in'; x.fillStyle = `rgb(${farbe})`; x.fillRect(0, 0, 512, 220);
+        x.globalCompositeOperation = 'destination-in';
+        const g = x.createRadialGradient(256, 110, 30, 256, 110, 250); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        x.setTransform(1, 0, 0, .44, 0, 61.6); x.fillStyle = g; x.fillRect(0, 0, 512, 500);
+      }
+      liste.push(c);
+    }
+    return liste;
+  }
+  // Allgemeine Partikel-Ebene: art 'steigt' (Rauch nach oben) oder 'zieht' (Nebelbank/Wolke seitwärts)
+  function ebene(canvas, cfg) {
+    const x = canvas.getContext('2d'); const skala = cfg.skala || .5;
+    let sprites = cfg.sprites(); if (!nebelBild.complete) nebelBild.addEventListener('load', () => { sprites = cfg.sprites(); });
+    let b = 0, h = 0, teile = [], lauf = true, sichtbar = true, zeiger = null;
+    const mass = () => { const r = canvas.getBoundingClientRect(); b = canvas.width = Math.max(1, Math.round(r.width * skala)); h = canvas.height = Math.max(1, Math.round(r.height * skala)); };
+    const anzahl = () => Math.round(cfg.anzahl * (schmal() ? cfg.mobil ?? .6 : 1));
+    const neu = start => {
+      const s = (cfg.groesse[0] + Math.random() * (cfg.groesse[1] - cfg.groesse[0])) * skala * (schmal() ? 1.25 : 1);
+      const v = (cfg.tempo[0] + Math.random() * (cfg.tempo[1] - cfg.tempo[0])) * skala * 2 * tempoF;
+      if (cfg.art === 'zieht') {
+        const rechts = Math.random() < (cfg.rechtsAnteil ?? .7), y = h * (cfg.band[0] + Math.random() * (cfg.band[1] - cfg.band[0]));
+        const x0 = start ? Math.random() * b : (rechts ? -s : b + s);
+        return { x: x0, y, vx: rechts ? v : -v, vy: (Math.random() - .5) * .04 * skala, s, k: Math.floor(Math.random() * sprites.length), ph: Math.random() * 6.3, a: cfg.alpha * (.55 + Math.random() * .45), dehn: 1.6 + Math.random() * 1.4 };
+      }
+      const q = cfg.quelle(b, h);
+      return { x: q.x, y: start ? h - Math.random() * h * cfg.hoehe : q.y, vx: (Math.random() - .5) * .2 * skala, vy: -v, s, ds: .16 * skala, r: Math.random() * 6.3, vr: (Math.random() - .5) * .005, ph: Math.random() * 6.3, k: Math.floor(Math.random() * sprites.length), t: 0, max: (h * cfg.hoehe) / v, a: cfg.alpha * (.6 + Math.random() * .4) };
+    };
+    const fuellen = () => { mass(); teile = Array.from({ length: anzahl() }, () => neu(true)); };
+    fuellen(); let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fuellen, 200); });
+    if (cfg.zeiger) {
+      const ziel = cfg.zeiger;
+      const setz = e => { const r = canvas.getBoundingClientRect(); const pt = e.touches ? e.touches[0] : e; zeiger = { x: (pt.clientX - r.left) * skala, y: (pt.clientY - r.top) * skala, t: 90 }; };
+      ziel.addEventListener('pointermove', setz, { passive: true }); ziel.addEventListener('touchmove', setz, { passive: true });
+    }
+    if ('IntersectionObserver' in window) new IntersectionObserver(es => { const war = sichtbar; sichtbar = es[0].isIntersecting; if (sichtbar && !war && lauf) requestAnimationFrame(schritt); }).observe(cfg.beobachte || canvas);
+    function schritt() {
+      if (!lauf || !sichtbar) return;
+      x.clearRect(0, 0, b, h);
+      if (zeiger && zeiger.t > 0) zeiger.t--;
+      for (const p of teile) {
+        p.ph += .008 * tempoF;
+        if (zeiger && zeiger.t > 0) { // Schwaden weichen der Hand sanft aus und verwirbeln
+          const dx = p.x - zeiger.x, dy = p.y - zeiger.y, dist = Math.hypot(dx, dy), rad = 160 * skala * 2;
+          if (dist < rad && dist > 1) { const k = (1 - dist / rad) * .9 * skala * (zeiger.t / 90); p.x += dx / dist * k * 2 - dy / dist * k; p.y += dy / dist * k * 2 + dx / dist * k; }
+        }
+        let a;
+        if (cfg.art === 'zieht') {
+          p.x += p.vx; p.y += p.vy + Math.sin(p.ph) * .12 * skala;
+          const rand = Math.min(p.x + p.s * p.dehn / 2, b - p.x + p.s * p.dehn / 2) / (p.s * p.dehn);
+          a = p.a * Math.max(0, Math.min(1, rand * 1.5)) * (.75 + Math.sin(p.ph * 1.7) * .25);
+          if (p.x < -p.s * p.dehn || p.x > b + p.s * p.dehn) { Object.assign(p, neu(false)); continue; }
+          x.globalAlpha = a; x.drawImage(sprites[p.k], p.x - p.s * p.dehn / 2, p.y - p.s * .4, p.s * p.dehn, p.s * .8);
+        } else {
+          p.t += tempoF; p.x += p.vx + Math.sin(p.ph) * .35 * skala; p.y += p.vy; p.s += p.ds * tempoF; p.r += p.vr;
+          const leben = p.t / p.max; a = p.a * Math.min(1, leben * 3.5) * Math.max(0, 1 - leben);
+          if (leben > 1) { Object.assign(p, neu(false)); continue; }
+          x.globalAlpha = a; x.save(); x.translate(p.x, p.y); x.rotate(Math.sin(p.r) * .45); x.drawImage(sprites[p.k], -p.s / 2, -p.s * .62, p.s, p.s * 1.25); x.restore();
+        }
+      }
+      requestAnimationFrame(schritt);
+    }
+    d.addEventListener('visibilitychange', () => { const war = lauf; lauf = !d.hidden; if (lauf && !war) requestAnimationFrame(schritt); });
+    requestAnimationFrame(schritt);
+  }
+  const himmel = d.querySelector('.land__himmel');
+  if (himmel) {
+    // dunkle Regenwolken und helle, vom Abendlicht gestreifte Wolkenränder ziehen über den Himmel
+    const dunkel = d.createElement('canvas'); dunkel.className = 'land__wolken'; himmel.prepend(dunkel);
+    ebene(dunkel, { art: 'zieht', sprites: () => wolkenSprites('34,38,44'), anzahl: 16, mobil: .7, alpha: .62, groesse: [220, 420], tempo: [.06, .16], band: [.02, .5], rechtsAnteil: .85, skala: .4 });
+    const hell = d.createElement('canvas'); hell.className = 'land__wolken land__wolken--hell'; himmel.append(hell);
+    ebene(hell, { art: 'zieht', sprites: () => wolkenSprites('214,176,140', 4), anzahl: 9, mobil: .7, alpha: .28, groesse: [160, 320], tempo: [.08, .2], band: [.18, .5], rechtsAnteil: .85, skala: .4 });
+  }
+  const held = d.querySelector('.held--land');
+  if (held) {
+    const c = d.createElement('canvas'); c.className = 'held__rauch'; c.setAttribute('aria-hidden', 'true'); held.prepend(c);
+    // 1) aufsteigende Rauchsäulen aus dem Tal
+    ebene(c, { art: 'steigt', sprites: () => rauchSprites('236,230,218'), anzahl: 54, mobil: .55, alpha: .62, groesse: [120, 320], tempo: [.35, .85], hoehe: .95, quelle: (b, h) => ({ x: Math.random() * b, y: h + 60 }), zeiger: held, beobachte: held });
+    // 2) Nebelbänke, die übers Tal kriechen, und 3) feine Fäden quer durchs Bild
+    const c2 = d.createElement('canvas'); c2.className = 'held__rauch'; c2.setAttribute('aria-hidden', 'true'); held.prepend(c2);
+    ebene(c2, { art: 'zieht', sprites: () => rauchSprites('226,220,208'), anzahl: 22, mobil: .6, alpha: .42, groesse: [180, 380], tempo: [.18, .45], band: [.55, 1], rechtsAnteil: .6, zeiger: held, beobachte: held });
+    const c3 = d.createElement('canvas'); c3.className = 'held__rauch'; c3.setAttribute('aria-hidden', 'true'); held.prepend(c3);
+    ebene(c3, { art: 'zieht', sprites: () => rauchSprites('240,232,220'), anzahl: 10, mobil: .6, alpha: .16, groesse: [200, 360], tempo: [.25, .5], band: [.15, .6], rechtsAnteil: .5, zeiger: held, beobachte: held });
+  }
+
   // ---------- Ritual: Feuer im Steinkreis, Funken und drei Atemzüge ----------
   d.querySelectorAll('[data-ritual]').forEach(r => {
     const en = r.dataset.lang === 'en';
