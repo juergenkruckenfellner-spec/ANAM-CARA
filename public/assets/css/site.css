@@ -675,3 +675,30 @@ a.laufband:hover,a.laufband:focus-visible{color:#FFD9A8}
 /* Stimmungsfoto am Seitenende direkt an die Fußzeile */
 main > .breitbild:last-child{margin-bottom:calc(var(--abstand) * -1)}
 .formularseite + .breitbild{margin-top:var(--abstand)}
+
+/* Handy (25.11.2026, Wunsch Kundin): weniger Nebel und Schleier, heller, Bogen-Umfeld besser sichtbar. Desktop unverändert. */
+@media (max-width:700px){
+  .land__foto{filter:saturate(.95) contrast(1.03) brightness(1.12)}
+  .land__nacht{opacity:calc(.06 + var(--p) * .45)}
+  .land__nebel--1{opacity:calc(.16 + var(--p) * .2)}
+  .land__nebel--2{opacity:calc(var(--p) * .3)}
+  .land__nebel--3{opacity:calc(.1 + var(--p) * .14)}
+  .held__nebel--a{opacity:.26}
+  .held__nebel--b{opacity:.16}
+  .mit-landschaft .held::before{background:linear-gradient(180deg,rgba(10,18,14,.18) 0%,rgba(10,18,14,.42) 45%,rgba(10,18,14,.3) 100%)}
+  .mit-landschaft .name{background:linear-gradient(180deg,rgba(10,18,14,0) 0,rgba(10,18,14,.22) 160px)}
+  .foto-hg{--schleier:.34}
+  .foto-hg--dunkel{--schleier:.44}
+  .foto-hg__bild{filter:saturate(.92) contrast(1.03) brightness(1.1)}
+  .foto-hg__nebel{opacity:.2}
+  .foto-hg__nebel--2{opacity:.1}
+  .breitbild--mystisch .foto-hg__nebel{opacity:.22}
+  .mit-landschaft .reisen{background:rgba(12,20,16,.45)}
+  .mit-landschaft .gratis__gross{background:rgba(12,20,16,.74)}
+  .mit-landschaft .nl__innen{background:rgba(12,20,16,.6)}
+  .mit-landschaft .faq .schmal{background:rgba(12,20,16,.58)}
+  .mit-landschaft .fuss{background:rgba(10,18,14,.82)}
+  .bogen::after{opacity:.95;border-color:var(--glut);box-shadow:0 0 0 1px rgba(232,160,102,.18),0 0 26px rgba(232,160,102,.18)}
+  .bogenschau__bild,.bogenschau__bild.geht{filter:blur(4px) brightness(1.15) saturate(.85)}
+  .schau__bild,.schau__bild.geht{filter:blur(5px) brightness(1.15) saturate(.85)}
+}
