@@ -702,3 +702,21 @@ main > .breitbild:last-child{margin-bottom:calc(var(--abstand) * -1)}
   .bogenschau__bild,.bogenschau__bild.geht{filter:blur(4px) brightness(1.15) saturate(.85)}
   .schau__bild,.schau__bild.geht{filter:blur(5px) brightness(1.15) saturate(.85)}
 }
+
+/* Kompakte Fußzeile (25.11.2026): ohne Adressen, Datenschutz und Anmelden bei den Symbolen */
+.fuss{padding-top:30px;padding-bottom:16px}
+.fuss__runen{margin:10px auto 8px}
+.fuss__runen .ogham{width:150px}
+.fuss .fuss__satz{max-width:var(--breit);margin:0 auto;text-align:center;font-size:.98rem}
+.fuss__satz a{text-decoration:none;border-bottom:1px dotted rgba(232,160,102,.5)}
+.fuss__ende{margin-top:10px;padding-top:10px}
+@media (max-width:760px){
+  .fuss{padding-top:22px;padding-bottom:78px}
+  .fuss__marke .monde{width:104px;margin-bottom:8px}
+  .fuss__band{gap:14px}
+  .fuss__wege a{padding:6px 0;min-height:40px;gap:4px}
+  .fuss__wege .zeichen{width:22px;height:22px}
+  .fuss .fuss__satz{font-size:.9rem}
+  .fuss__ende{flex-direction:row;gap:8px 12px}
+  .fuss__klein{min-width:0;font-size:.68rem}
+}
