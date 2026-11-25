@@ -80,11 +80,12 @@ p{margin:0 0 1em;max-width:66ch}
 .logo__wort{font:300 1.32rem/1 var(--anzeige);letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
 @media (max-width:420px){.logo .monde{width:58px}.logo__wort{font-size:1.08rem;letter-spacing:.16em}}
 .nav{display:flex;align-items:center;gap:clamp(16px,2.2vw,34px)}
-.nav a{text-decoration:none;font-size:.74rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;min-height:44px;display:inline-flex;align-items:center;color:var(--mond-weich)}
+.nav a{white-space:nowrap;text-decoration:none;font-size:.74rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;min-height:44px;display:inline-flex;align-items:center;color:var(--mond-weich)}
 .nav a:hover,.nav a[aria-current="page"]{color:var(--glut)}
 .nav__login{gap:8px;border:1px solid var(--linie-nacht);border-radius:999px;padding:0 18px;color:var(--mond)!important}
 .nav__login:hover{border-color:var(--glut)}
 .menue-knopf{display:none;background:none;border:1px solid var(--linie-nacht);border-radius:999px;min-height:44px;padding:0 18px;font:700 .72rem var(--text);letter-spacing:.2em;text-transform:uppercase;color:var(--mond);cursor:pointer}
+@media (min-width:961px) and (max-width:1320px){.nav{gap:clamp(12px,1.4vw,22px)}.nav a{letter-spacing:.12em;font-size:.7rem}}
 @media (max-width:960px){
   .menue-knopf{display:block}
   .nav{position:fixed;inset:68px 0 auto 0;flex-direction:column;align-items:stretch;gap:0;background:var(--nacht);padding:12px var(--rand) 28px;border-bottom:1px solid var(--linie-nacht);display:none}
@@ -670,3 +671,7 @@ a.laufband:hover,a.laufband:focus-visible{color:#FFD9A8}
 @media (prefers-reduced-motion:reduce){.bogenschau__bild.ist-aktiv img{animation:none}}
 .bogen > .bogenschau{border-radius:999px 999px 3px 3px;clip-path:inset(0 round 999px 999px 3px 3px);aspect-ratio:3/4}
 .schau__pfeil svg.gespiegelt{transform:scaleX(-1)}
+
+/* Stimmungsfoto am Seitenende direkt an die Fußzeile */
+main > .breitbild:last-child{margin-bottom:calc(var(--abstand) * -1)}
+.formularseite + .breitbild{margin-top:var(--abstand)}

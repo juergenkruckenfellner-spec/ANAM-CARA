@@ -287,7 +287,7 @@
   // ===================== Reisen =====================
   const leer = () => ({ id: '', slug: '', veroeffentlicht: false, status: 'geplant', von: '', bis: '', plaetze: '', bild: '', titel: { de: '', en: '' }, ort: { de: '', en: '' }, kurz: { de: '', en: '' }, text: { de: '', en: '' }, ablauf: { de: '', en: '' }, leistungen: { de: '', en: '' }, preis: { de: 'auf Anfrage', en: 'on request' }, infos: '', packliste: [], dokumente: [], nachrichten: [] });
   const zwei = (r, f, label, typ = 'zeile', hilfe = '') => `<div class="textfeld"><label>${label}</label>${hilfe ? `<p class="klein">${hilfe}</p>` : ''}<div class="zwei-sprachen">${['de', 'en'].map(l => `<div><span class="sprache">${l === 'de' ? 'DEUTSCH' : 'ENGLISCH'}</span>${typ === 'zeile' ? `<input data-f="${f}" data-l="${l}" value="${esc(r[f]?.[l] || '')}">` : `<textarea data-f="${f}" data-l="${l}" rows="${typ === 'lang' ? 7 : 3}">${esc(r[f]?.[l] || '')}</textarea>`}</div>`).join('')}</div></div>`;
-  const bildWahl = (id, name) => `<div class="bildwahl" data-bildwahl="${name}">${id ? `<img src="${bildUrl(id)}" alt="">` : '<span class="platz"></span>'}<select data-bild="${name}"><option value="">Kein Foto (Zeichnung)</option>${S.bilder.map(b => `<option value="${b.id}"${b.id === id ? ' selected' : ''}>${esc(b.name)}${b.alt?.de ? ' – ' + esc(b.alt.de.slice(0, 40)) : ''}</option>`).join('')}</select></div>`;
+  const bildWahl = (id, name) => `<div class="bildwahl" data-bildwahl="${name}">${id ? `<img src="${bildUrl(id)}" alt="">` : '<span class="platz"></span>'}<select data-bild="${name}"><option value="">Kein Foto</option>${S.bilder.map(b => `<option value="${b.id}"${b.id === id ? ' selected' : ''}>${esc(b.titel || b.name)}${!b.titel && b.alt?.de ? ' – ' + esc(b.alt.de.slice(0, 40)) : ''}</option>`).join('')}</select></div>`;
 
   ANSICHT.reisen = async () => {
     [S.retreats, S.bilder] = await Promise.all([api('/v/retreats'), api('/v/bilder')]);
@@ -426,30 +426,52 @@
 
   // ===================== Bilder =====================
   ANSICHT.bilder = async () => {
-    const [bl, i] = await Promise.all([api('/v/bilder'), api('/v/inhalt')]); S.bilder = bl;
-    const PL = { hero: 'Großes Bild auf der Startseite', sabine: 'Porträt Sabine', nina: 'Porträt Nina', ueber: 'Breites Bild auf „Über uns"', hgReisen: 'Hintergrund hinter „Reisen" (Startseite)', hgKennen: 'Hintergrund im Feld „Kennenlernen"' };
+    const [bl, i, rs] = await Promise.all([api('/v/bilder'), api('/v/inhalt'), api('/v/retreats')]); S.bilder = bl;
+    const RUBRIKEN = [
+      ['Startseite', [['hero', 'Großes Titelbild ganz oben'], ['hgReisen', 'Hintergrund hinter „Reisen“'], ['hgKennen', 'Hintergrund im Feld „Kennenlernen“']]],
+      ['Über uns', [['ueber', 'Breites Stimmungsbild'], ['sabine', 'Porträt Sabine'], ['nina', 'Porträt Nina']]],
+      ['Unterseiten', [['bildRetreats', 'Seite „Retreats“'], ['bildKontakt', 'Seite „Kontakt“'], ['bildKennen', 'Seite „Kennenlernen“'], ['bildWarte', 'Seite „Vormerken“']]],
+    ];
+    const PLATZNAME = Object.fromEntries(RUBRIKEN.flatMap(([r, l]) => l.map(([k, t]) => [k, `${r}: ${t}`])));
+    const BP = i.einstellungen.bildplaetze || {};
+    const verwendung = b => {
+      const v = [];
+      for (const [k, id] of Object.entries(BP)) if (id === b.id && PLATZNAME[k]) v.push(['platz', PLATZNAME[k]]);
+      for (const r of rs) if (r.bild === b.id || (r.bilder || []).includes(b.id)) v.push(['reise', `Reise: ${r.titel?.de || 'Reise'}`]);
+      if (b.impression) v.push(['impression', 'Impressionen']);
+      if (b.galerie) v.push(['galerie', 'Galerie']);
+      return v;
+    };
+    const FILTER = [['alle', 'Alle'], ['impression', 'Impressionen'], ['platz', 'Hintergründe & Seitenbilder'], ['reise', 'Reisen'], ['galerie', 'Galerie'], ['frei', 'Nicht verwendet']];
     main.innerHTML = kopf('Bilder', `<label class="knopf">Fotos hochladen<input type="file" id="up" accept="image/jpeg,image/png,image/webp" multiple hidden></label>`) +
       `<div class="hinweisbox">Bitte nur eigene Fotos oder Fotos mit Erlaubnis der Fotografin verwenden. Keine KI-Bilder. Große Fotos werden beim Hochladen automatisch verkleinert.</div>
-      <div class="hinweisbox hinweisbox--gruen"><strong>Impressionen:</strong> Alle Fotos mit Haken „Impressionen" laufen auf der Startseite und unter <a href="/impressionen" target="_blank" rel="noopener">/impressionen</a> als Bildfolge. Die Reihenfolge stellt ihr mit ◀ ▶ ein. Hintergründe wählt ihr oben bei „Wo welches Foto erscheint".</div>
+      <div class="hinweisbox hinweisbox--gruen"><strong>So funktioniert es:</strong> Unten in den Rubriken wählt ihr für jeden Platz auf der Website ein Foto aus. Alle Fotos mit Haken „Impressionen“ laufen auf der Startseite und unter <a href="/impressionen" target="_blank" rel="noopener">/impressionen</a> als Bildfolge (Reihenfolge mit ◀ ▶). Die Fotos im Bildbogen einer Reise wählt ihr unter „Reisen & Termine“. An jedem Foto steht, wo es gerade verwendet wird.</div>
+      <form class="rubriken" id="plaetze-form" novalidate>${RUBRIKEN.map(([r, liste]) => `<section class="karte rubrik"><h2 class="h3">Rubrik ${r}</h2><div class="raster2">${liste.map(([k, t]) => `<div class="feld"><label>${t}</label>${bildWahl(BP[k], k)}</div>`).join('')}</div></section>`).join('')}
+      <div class="karte"><label class="haken"><input type="checkbox" id="gal" ${i.einstellungen.abschnitte.galerie ? 'checked' : ''}><span>Galerie auf der Website zeigen (alle Bilder mit Haken „Galerie“)</span></label>
+      <button class="knopf knopf--klein" id="plaetze" type="button">Zuordnung speichern</button></div></form>
       <form class="karte" id="tempo" novalidate><h2 class="h3">Bildwechsel</h2><div class="raster2">
         <div class="feld"><label for="t-imp">Impressionen: Sekunden pro Bild <span class="feld__hinweis" id="t-imp-w">${(i.einstellungen.tempo || {}).impressionen ?? 7.5} s</span></label><input id="t-imp" type="range" min="3" max="30" step="0.5" value="${(i.einstellungen.tempo || {}).impressionen ?? 7.5}"></div>
         <div class="feld"><label for="t-bog">Bildbogen der Reise: Sekunden pro Bild <span class="feld__hinweis" id="t-bog-w">${(i.einstellungen.tempo || {}).bogen ?? 6} s</span></label><input id="t-bog" type="range" min="3" max="30" step="0.5" value="${(i.einstellungen.tempo || {}).bogen ?? 6}"></div></div>
-        <p class="klein">Welche Fotos im Bildbogen wechseln, wählt ihr bei der jeweiligen Reise unter „Reisen & Termine".</p>
         <button class="knopf knopf--klein">Tempo speichern</button></form>
-      <div class="karte"><h2 class="h3">Wo welches Foto erscheint</h2><div class="raster2">${Object.entries(PL).map(([k, t]) => `<div class="feld"><label>${t}</label>${bildWahl(i.einstellungen.bildplaetze[k], k)}</div>`).join('')}</div>
-      <label class="haken"><input type="checkbox" id="gal" ${i.einstellungen.abschnitte.galerie ? 'checked' : ''}><span>Galerie auf der Website zeigen (alle Bilder mit Haken „Galerie")</span></label>
-      <button class="knopf knopf--klein" id="plaetze">Zuordnung speichern</button></div>
-      <div class="bildraster">${bl.map(b => `<div class="bildkachel" data-id="${b.id}"><img src="${bildUrl(b.id)}" alt="" loading="lazy">
+      <h2 class="h3">Alle Fotos</h2>
+      <p class="bildfilter" role="group" aria-label="Fotos filtern">${FILTER.map(([k, t], n) => `<button type="button" class="knopf knopf--leise knopf--klein${n ? '' : ' ist-aktiv'}" data-filter="${k}" aria-pressed="${n ? 'false' : 'true'}">${t}</button>`).join('')}</p>
+      <div class="bildraster">${bl.map(b => { const v = verwendung(b); return `<div class="bildkachel" data-id="${b.id}" data-arten="${[...new Set(v.map(x => x[0]))].join(' ') || 'frei'}"><img src="${bildUrl(b.id)}" alt="" loading="lazy">
+        <input class="bildkachel__titel" data-titel value="${esc(b.titel || '')}" placeholder="Name des Fotos" aria-label="Name des Fotos">
+        <p class="bildkachel__marken">${v.length ? v.map(([a, t]) => `<span class="marke marke--${a}">${esc(t)}</span>`).join('') : '<span class="marke marke--frei">Nicht verwendet</span>'}</p>
         <label class="klein" for="a-${b.id}">Beschreibung (für Blinde und Google)</label><input id="a-${b.id}" data-alt="de" value="${esc(b.alt?.de || '')}" placeholder="Was ist zu sehen?">
         <input data-alt="en" value="${esc(b.alt?.en || '')}" placeholder="English description" aria-label="Beschreibung Englisch">
         <input data-credit value="${esc(b.credit || '')}" placeholder="Foto von (z. B. Fotografin)" aria-label="Fotonachweis">
         <label class="haken"><input type="checkbox" data-impression ${b.impression ? 'checked' : ''}><span>Impressionen</span></label>
         <label class="haken"><input type="checkbox" data-galerie ${b.galerie ? 'checked' : ''}><span>Galerie</span></label>
-        <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-vor title="Weiter nach vorne" aria-label="Weiter nach vorne">◀</button><button class="knopf knopf--leise knopf--klein" data-nach title="Weiter nach hinten" aria-label="Weiter nach hinten">▶</button><button class="knopf knopf--leise knopf--klein" data-sp>Speichern</button><button class="knopf knopf--leise knopf--klein" data-lo>Löschen</button></p></div>`).join('') || '<p class="leer">Noch keine Fotos.</p>'}</div>`;
+        <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-vor title="Weiter nach vorne" aria-label="Weiter nach vorne">◀</button><button class="knopf knopf--leise knopf--klein" data-nach title="Weiter nach hinten" aria-label="Weiter nach hinten">▶</button><button class="knopf knopf--leise knopf--klein" data-sp>Speichern</button><button class="knopf knopf--leise knopf--klein" data-lo>Löschen</button></p></div>`; }).join('') || '<p class="leer">Noch keine Fotos.</p>'}</div>`;
+    $$('[data-filter]').forEach(f => f.onclick = () => {
+      $$('[data-filter]').forEach(x => { x.classList.toggle('ist-aktiv', x === f); x.setAttribute('aria-pressed', x === f ? 'true' : 'false'); });
+      $$('.bildkachel').forEach(k => { k.hidden = f.dataset.filter !== 'alle' && !k.dataset.arten.split(' ').includes(f.dataset.filter); });
+    });
     $$('[data-bild]').forEach(s => s.onchange = () => { const w = s.closest('.bildwahl'); w.firstElementChild.outerHTML = s.value ? `<img src="${bildUrl(s.value)}" alt="">` : '<span class="platz"></span>'; });
     ['imp', 'bog'].forEach(k => { const el = $('#t-' + k); el.oninput = () => { $('#t-' + k + '-w').textContent = el.value + ' s'; }; });
     $('#tempo').onsubmit = e => { e.preventDefault(); sicher(() => api('/v/inhalt', { einstellungen: { tempo: { impressionen: Number($('#t-imp').value), bogen: Number($('#t-bog').value) } } }), 'Gespeichert. Die Website ist aktualisiert.'); };
-    $('#plaetze').onclick = () => sicher(() => api('/v/inhalt', { einstellungen: { bildplaetze: Object.fromEntries($$('[data-bild]').map(s => [s.dataset.bild, s.value])), abschnitte: { galerie: $('#gal').checked } } }), 'Gespeichert. Die Website ist aktualisiert.');
+    $('#plaetze').onclick = () => sicher(async () => { await api('/v/inhalt', { einstellungen: { bildplaetze: Object.fromEntries($$('[data-bild]').map(s => [s.dataset.bild, s.value])), abschnitte: { galerie: $('#gal').checked } } }); ANSICHT.bilder(); }, 'Gespeichert. Die Website ist aktualisiert.');
     $('#up').onchange = async e => {
       for (const d of e.target.files) {
         const alt = prompt(`Kurze Beschreibung für „${d.name}" (was ist zu sehen?)`, '') || '';
@@ -463,7 +485,7 @@
     };
     $$('.bildkachel').forEach(k => {
       const id = k.dataset.id;
-      $('[data-sp]', k).onclick = () => sicher(() => api('/v/bild/aendern', { id, alt: { de: $('[data-alt="de"]', k).value, en: $('[data-alt="en"]', k).value }, galerie: $('[data-galerie]', k).checked, impression: $('[data-impression]', k).checked, credit: $('[data-credit]', k).value }), 'Gespeichert. Die Website ist aktualisiert.');
+      $('[data-sp]', k).onclick = () => sicher(() => api('/v/bild/aendern', { id, titel: $('[data-titel]', k).value, alt: { de: $('[data-alt="de"]', k).value, en: $('[data-alt="en"]', k).value }, galerie: $('[data-galerie]', k).checked, impression: $('[data-impression]', k).checked, credit: $('[data-credit]', k).value }), 'Gespeichert. Die Website ist aktualisiert.');
       $('[data-galerie]', k).onchange = $('[data-impression]', k).onchange = $('[data-sp]', k).onclick;
       $('[data-vor]', k).onclick = () => sicher(async () => { await api('/v/bild/verschieben', { id, richtung: 'vor' }); ANSICHT.bilder(); });
       $('[data-nach]', k).onclick = () => sicher(async () => { await api('/v/bild/verschieben', { id, richtung: 'nach' }); ANSICHT.bilder(); });

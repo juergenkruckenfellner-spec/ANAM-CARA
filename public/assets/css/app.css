@@ -136,3 +136,18 @@ dialog .haken{margin:8px 0}
 .lb-bahn{display:flex;width:max-content;animation:lbLauf 20s linear infinite}
 .lb-bahn > div{display:flex;align-items:center;gap:22px;padding-right:22px;white-space:nowrap;font-size:.8rem;letter-spacing:.18em;text-transform:uppercase}
 @keyframes lbLauf{to{transform:translateX(-50%)}}
+
+/* Bilder: Rubriken, Filter, Verwendungs-Marken */
+.rubriken{display:grid;gap:14px;margin-bottom:14px}
+.rubrik .h3{margin-top:0}
+.bildfilter{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.bildfilter .ist-aktiv{background:var(--tinte,#1d2a23);color:#fff}
+.bildkachel__titel{font-weight:700}
+.bildkachel__marken{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}
+.marke{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.72rem;line-height:1.4;background:#eef0ec;color:#2c3a32}
+.marke--platz{background:#f6e3d3;color:#7a3e16}
+.marke--impression{background:#dfeadf;color:#24502f}
+.marke--reise{background:#e1e6f2;color:#2b3c66}
+.marke--galerie{background:#efe4f1;color:#5a2d63}
+.marke--frei{background:#f3f3f3;color:#777}
+.bildkachel[hidden]{display:none}

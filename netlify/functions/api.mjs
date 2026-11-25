@@ -8,6 +8,7 @@ import { FELDER, musikVon, laufbandVon, tempoVon } from '../../lib/inhalt-standa
 import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD, BOGEN_STANDARD } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
+import { fotosEigeneTauschen } from '../../lib/fotowechsel.mjs';
 
 const ip = req => req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for')?.split(',')[0] || 'lokal';
 const body = async req => { try { return await req.json(); } catch { return {}; } };
@@ -284,7 +285,7 @@ async function fotosImportieren(quellen) {
     for (const q of [...new Set(quellen.filter(Boolean))]) { try { r = await fetch(`${q}${S.statisch}-${w}.webp`); if (r.ok) break; } catch { r = null; } }
     if (!r?.ok) throw new Error('Foto nicht erreichbar: ' + k);
     const bid = id(8); await D.dateiSpeichern('bild', bid, Buffer.from(await r.arrayBuffer()), { typ: 'image/webp' });
-    neu[k] = { id: bid, name: k + '.webp', b: S.b, h: S.h, alt: { ...S.alt }, galerie: false, impression: IMPRESSIONEN_STANDARD.includes(k), credit: S.credit || '', zeit: jetzt() };
+    neu[k] = { id: bid, name: k + '.webp', titel: S.titel || '', b: S.b, h: S.h, alt: { ...S.alt }, galerie: false, impression: IMPRESSIONEN_STANDARD.includes(k), credit: S.credit || '', zeit: jetzt() };
   }
   const reihe = [...IMPRESSIONEN_STANDARD, ...schluessel.filter(k => !IMPRESSIONEN_STANDARD.includes(k))].map(k => neu[k]);
   await D.bilderSpeichern([...reihe, ...l]);
@@ -292,7 +293,7 @@ async function fotosImportieren(quellen) {
   for (const [platz, k] of Object.entries(PLATZ_STANDARD)) if (!frisch.einstellungen.bildplaetze[platz]) frisch.einstellungen.bildplaetze[platz] = neu[k].id;
   frisch.einstellungen.fotosImportiert = true; await D.inhaltSpeichern(frisch);
   const rs = await D.retreats(); const r = rs.find(x => !x.bild);
-  if (r && rs.length === 1) { r.bild = neu['temple-house']?.id || ''; await D.retreatsSpeichern?.(rs); }
+  if (r && rs.length === 1) { r.bild = neu['morgenweg']?.id || ''; await D.retreatsSpeichern?.(rs); }
   await D.protokoll('System', 'Mitgelieferte Fotos in die Bildverwaltung übernommen'); await seitenNeu();
 }
 
@@ -315,6 +316,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     try { await B.beispieleAnlegen(); } catch (e) { console.error('Beispiele', e.message); }
     try { await fotosImportieren([seite, u.origin, env('URL')]); } catch (e) { console.error('Fotos übernehmen', e.message); }
     try { await fotosNachpflegen(); } catch (e) { console.error('Fotos nachpflegen', e.message); }
+    try { await fotosEigeneTauschen([seite, u.origin, env('URL')]); } catch (e) { console.error('Eigene Fotos', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
@@ -451,7 +453,8 @@ async function verwaltung(req, p, m, admin, seite, u) {
     const bid = id(8);
     await D.dateiSpeichern('bild', bid, buf, { typ });
     const l = await D.bilder();
-    const eintrag = { id: bid, name: kurz(decodeURIComponent(req.headers.get('x-name') || 'bild'), 120), b: Number(req.headers.get('x-b')) || 0, h: Number(req.headers.get('x-h')) || 0, alt: { de: kurz(decodeURIComponent(req.headers.get('x-alt') || ''), 200), en: '' }, galerie: false, zeit: jetzt(), groesse: buf.length };
+    const name0 = kurz(decodeURIComponent(req.headers.get('x-name') || 'bild'), 120);
+    const eintrag = { id: bid, name: name0, titel: name0.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim(), b: Number(req.headers.get('x-b')) || 0, h: Number(req.headers.get('x-h')) || 0, alt: { de: kurz(decodeURIComponent(req.headers.get('x-alt') || ''), 200), en: '' }, galerie: false, zeit: jetzt(), groesse: buf.length };
     l.unshift(eintrag); await D.bilderSpeichern(l); await D.protokoll(admin.email, 'Bild hochgeladen');
     return json({ ok: true, bild: eintrag });
   }
@@ -462,6 +465,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     if (typeof b.galerie === 'boolean') x.galerie = b.galerie;
     if (typeof b.impression === 'boolean') x.impression = b.impression;
     if (typeof b.credit === 'string') x.credit = kurz(b.credit, 80);
+    if (typeof b.titel === 'string') x.titel = kurz(b.titel, 80);
     await D.bilderSpeichern(l); await seitenNeu(); return json({ ok: true });
   }
   if (p === '/bild/verschieben' && m === 'POST') { // Reihenfolge (auch der Impressionen) ändern
@@ -729,7 +733,7 @@ async function sichtbarkeitsCheck() {
     if (k.endsWith('.titel') && k.startsWith('seo.') && v.length > 62) add('gelb', 'Google', `${l.toUpperCase()}: Seitentitel „${k}" ist ${v.length} Zeichen lang (Google kürzt ab ca. 60).`, 'texte');
     if (k.endsWith('.beschreibung') && (v.length < 110 || v.length > 165)) add('gelb', 'Google', `${l.toUpperCase()}: Beschreibung „${k}" hat ${v.length} Zeichen (ideal 120–160).`, 'texte');
   }
-  for (const [s, v] of Object.entries(E.bildplaetze)) if (!v) add('gelb', 'Bilder', `Bildplatz „${s}" zeigt noch die Zeichnung statt eines eigenen Fotos.`, 'bilder');
+  for (const [s, v] of Object.entries(E.bildplaetze)) if (!v) add('gelb', 'Bilder', `Bildplatz „${s}" hat noch kein Foto.`, 'bilder');
   for (const b of bl) { if (!b.alt?.de) add('gelb', 'Barrierefreiheit', `Bild „${b.name}" hat keinen Alternativtext (DE).`, 'bilder'); if (!b.alt?.en) add('hinweis', 'Barrierefreiheit', `Bild „${b.name}" hat keinen englischen Alternativtext.`, 'bilder'); }
   for (const r of rs.filter(x => x.veroeffentlicht)) {
     if (!r.bild) add('gelb', 'Reisen', `„${r.titel.de}" hat kein Foto.`, 'reisen');
