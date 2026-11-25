@@ -638,3 +638,31 @@ main,.fuss{overflow-x:clip}
 @media (max-width:700px){.schau__buehne{aspect-ratio:4/5}.schau__bild figcaption{flex-direction:column;align-items:flex-start;gap:6px;padding-top:80px}.schau__pfeil{width:68px;height:48px}}
 @media (prefers-reduced-motion:reduce){.schau__bild.ist-aktiv .schau__foto{animation:none}.schau.wechselt .schau__nebel{animation:none}}
 .foto-hg__rauch{position:absolute;inset:0;width:100%;height:100%;z-index:1;mix-blend-mode:screen;pointer-events:none}
+
+/* ---------- Laufband (Newsticker) unter dem Seitenkopf ---------- */
+.laufband{position:relative;display:block;overflow:hidden;border-top:1px solid var(--linie-nacht);background:linear-gradient(90deg,rgba(176,103,63,.22),rgba(18,28,23,.2) 50%,rgba(176,103,63,.22));color:var(--mond);text-decoration:none;font:700 .72rem/1 var(--text);letter-spacing:.2em;text-transform:uppercase;height:34px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+a.laufband:hover,a.laufband:focus-visible{color:#FFD9A8}
+.laufband__sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.laufband__bahn{display:flex;width:max-content;height:100%;align-items:center;animation:laufband 40s linear infinite;will-change:transform}
+.laufband__bahn[data-richtung="rechts"]{animation-direction:reverse}
+.laufband:hover .laufband__bahn,.laufband:focus-visible .laufband__bahn{animation-play-state:paused}
+.laufband__gruppe{display:flex;align-items:center;gap:28px;padding-right:28px;white-space:nowrap}
+.laufband__mond{width:16px;height:16px;opacity:.9;filter:drop-shadow(0 0 6px rgba(232,160,102,.5))}
+@keyframes laufband{to{transform:translate3d(-50%,0,0)}}
+@media (max-width:700px){.laufband{height:30px;font-size:.66rem;letter-spacing:.16em}}
+@media (prefers-reduced-motion:reduce){.laufband__bahn{animation-duration:160s!important}}
+@media print{.laufband{display:none}}
+
+/* ---------- Bildbogen: Fotos verschwimmen ineinander ---------- */
+.bogenschau{position:relative;display:block;width:100%;height:100%;overflow:hidden}
+.reise__bild .bogenschau,.detail__bild .bogenschau{aspect-ratio:3/4}
+.bogenschau__bild{position:absolute;inset:0;opacity:0;filter:blur(14px) brightness(1.5) saturate(.6);transition:opacity 2.6s ease,filter 2.6s ease}
+.bogenschau__bild.ist-aktiv{opacity:1;filter:none;transition:opacity 2.4s ease .5s,filter 2.8s ease .4s}
+.bogenschau__bild.geht{opacity:0;filter:blur(18px) brightness(1.7) saturate(.4)}
+.bogenschau__bild img{width:100%;height:100%;object-fit:cover}
+.bogenschau__bild.ist-aktiv img{animation:kenBurns 12s ease-out both}
+.bogenschau__nebel{position:absolute;inset:-15%;z-index:2;pointer-events:none;mix-blend-mode:screen;opacity:0;background:url(/assets/bilder/nebel-1.webp) center/cover;transition:opacity 1.3s ease}
+.bogenschau.wechselt .bogenschau__nebel{opacity:.8;animation:nebelWirbel 2.8s ease-in-out}
+@media (prefers-reduced-motion:reduce){.bogenschau__bild.ist-aktiv img{animation:none}}
+.bogen > .bogenschau{border-radius:999px 999px 3px 3px;clip-path:inset(0 round 999px 999px 3px 3px);aspect-ratio:3/4}
+.schau__pfeil svg.gespiegelt{transform:scaleX(-1)}

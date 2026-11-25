@@ -5,7 +5,7 @@
   let S = { status: null, bilder: [], retreats: [], ungespeichert: false };
   const BEREICHE = [
     ['uebersicht', 'Übersicht'], ['anfragen', 'Anfragen'], ['buchungen', 'Buchungen & Zahlungen'], ['reisen', 'Reisen & Termine'], ['teilnehmerinnen', 'Teilnehmerinnen'],
-    ['texte', 'Texte'], ['bilder', 'Bilder'], ['stimmen', 'Rückmeldungen'], ['newsletter', 'Newsletter'],
+    ['texte', 'Texte'], ['laufband', 'Laufband'], ['bilder', 'Bilder'], ['stimmen', 'Rückmeldungen'], ['newsletter', 'Newsletter'],
     ['sichtbarkeit', 'Besuche & Google'], ['einstellungen', 'Einstellungen'], ['sicherung', 'Sicherung'],
   ];
   const ARTEN = { anfrage: 'Allgemein', retreat: 'Reise', kennen: 'Kennenlernen', warte: 'Vormerkung', teilnehmerin: 'Teilnehmerin' };
@@ -305,7 +305,9 @@
             <div class="feld"><label for="r-sl">Adresse der Seite</label><input id="r-sl" data-k="slug" value="${esc(r.slug)}" placeholder="wird aus dem Titel gebildet"></div>
             <label class="haken"><input type="checkbox" data-k="veroeffentlicht" ${r.veroeffentlicht ? 'checked' : ''}><span>Auf der Website zeigen</span></label>
           </div>
-          <div class="feld"><label>Foto der Reise</label>${bildWahl(r.bild, 'reise')}</div>
+          <div class="feld"><label>Foto der Reise <span class="feld__hinweis">erstes Bild im Bogen</span></label>${bildWahl(r.bild, 'reise')}</div>
+          <div class="feld"><label>Weitere Fotos im Bildbogen <span class="feld__hinweis">wechseln wie die Impressionen; Tempo unter „Bilder"</span></label>
+            <div class="bogenwahl">${S.bilder.length ? S.bilder.map(b => `<label class="bogenwahl__bild"><input type="checkbox" data-bogen value="${b.id}" ${(r.bilder || []).includes(b.id) ? 'checked' : ''}><img src="${bildUrl(b.id)}" alt="" loading="lazy"><span>${esc(b.alt?.de || b.name)}</span></label>`).join('') : '<p class="klein">Zuerst unter „Bilder" Fotos hochladen.</p>'}</div></div>
           ${zwei(r, 'titel', 'Titel')}${zwei(r, 'ort', 'Ort')}${zwei(r, 'preis', 'Preis', 'zeile', 'zum Beispiel „ab 2.890 € im Doppelzimmer" oder „auf Anfrage"')}
           ${zwei(r, 'kurz', 'Kurzbeschreibung (erscheint auf Karten und bei Google)', 'kurz')}
           ${zwei(r, 'text', 'Ausführliche Beschreibung', 'lang', 'Leerzeile = neuer Absatz. Ort, Unterkunft, Stimmung und was die Woche besonders macht.')}
@@ -354,6 +356,7 @@
       $$('[data-k]', f).forEach(el => { const k = el.dataset.k; r[k] = el.type === 'checkbox' ? el.checked : k === 'packliste' ? el.value.split('\n').map(x => x.trim()).filter(Boolean) : el.value; });
       $$('[data-f]', f).forEach(el => { r[el.dataset.f] = r[el.dataset.f] || {}; r[el.dataset.f][el.dataset.l] = el.value; });
       r.bild = $('[data-bild="reise"]', f).value;
+      r.bilder = $$('[data-bogen]', f).filter(x => x.checked).map(x => x.value);
     };
     zeichnen();
   };
@@ -428,6 +431,11 @@
     main.innerHTML = kopf('Bilder', `<label class="knopf">Fotos hochladen<input type="file" id="up" accept="image/jpeg,image/png,image/webp" multiple hidden></label>`) +
       `<div class="hinweisbox">Bitte nur eigene Fotos oder Fotos mit Erlaubnis der Fotografin verwenden. Keine KI-Bilder. Große Fotos werden beim Hochladen automatisch verkleinert.</div>
       <div class="hinweisbox hinweisbox--gruen"><strong>Impressionen:</strong> Alle Fotos mit Haken „Impressionen" laufen auf der Startseite und unter <a href="/impressionen" target="_blank" rel="noopener">/impressionen</a> als Bildfolge. Die Reihenfolge stellt ihr mit ◀ ▶ ein. Hintergründe wählt ihr oben bei „Wo welches Foto erscheint".</div>
+      <form class="karte" id="tempo" novalidate><h2 class="h3">Bildwechsel</h2><div class="raster2">
+        <div class="feld"><label for="t-imp">Impressionen: Sekunden pro Bild <span class="feld__hinweis" id="t-imp-w">${(i.einstellungen.tempo || {}).impressionen ?? 7.5} s</span></label><input id="t-imp" type="range" min="3" max="30" step="0.5" value="${(i.einstellungen.tempo || {}).impressionen ?? 7.5}"></div>
+        <div class="feld"><label for="t-bog">Bildbogen der Reise: Sekunden pro Bild <span class="feld__hinweis" id="t-bog-w">${(i.einstellungen.tempo || {}).bogen ?? 6} s</span></label><input id="t-bog" type="range" min="3" max="30" step="0.5" value="${(i.einstellungen.tempo || {}).bogen ?? 6}"></div></div>
+        <p class="klein">Welche Fotos im Bildbogen wechseln, wählt ihr bei der jeweiligen Reise unter „Reisen & Termine".</p>
+        <button class="knopf knopf--klein">Tempo speichern</button></form>
       <div class="karte"><h2 class="h3">Wo welches Foto erscheint</h2><div class="raster2">${Object.entries(PL).map(([k, t]) => `<div class="feld"><label>${t}</label>${bildWahl(i.einstellungen.bildplaetze[k], k)}</div>`).join('')}</div>
       <label class="haken"><input type="checkbox" id="gal" ${i.einstellungen.abschnitte.galerie ? 'checked' : ''}><span>Galerie auf der Website zeigen (alle Bilder mit Haken „Galerie")</span></label>
       <button class="knopf knopf--klein" id="plaetze">Zuordnung speichern</button></div>
@@ -439,6 +447,8 @@
         <label class="haken"><input type="checkbox" data-galerie ${b.galerie ? 'checked' : ''}><span>Galerie</span></label>
         <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-vor title="Weiter nach vorne" aria-label="Weiter nach vorne">◀</button><button class="knopf knopf--leise knopf--klein" data-nach title="Weiter nach hinten" aria-label="Weiter nach hinten">▶</button><button class="knopf knopf--leise knopf--klein" data-sp>Speichern</button><button class="knopf knopf--leise knopf--klein" data-lo>Löschen</button></p></div>`).join('') || '<p class="leer">Noch keine Fotos.</p>'}</div>`;
     $$('[data-bild]').forEach(s => s.onchange = () => { const w = s.closest('.bildwahl'); w.firstElementChild.outerHTML = s.value ? `<img src="${bildUrl(s.value)}" alt="">` : '<span class="platz"></span>'; });
+    ['imp', 'bog'].forEach(k => { const el = $('#t-' + k); el.oninput = () => { $('#t-' + k + '-w').textContent = el.value + ' s'; }; });
+    $('#tempo').onsubmit = e => { e.preventDefault(); sicher(() => api('/v/inhalt', { einstellungen: { tempo: { impressionen: Number($('#t-imp').value), bogen: Number($('#t-bog').value) } } }), 'Gespeichert. Die Website ist aktualisiert.'); };
     $('#plaetze').onclick = () => sicher(() => api('/v/inhalt', { einstellungen: { bildplaetze: Object.fromEntries($$('[data-bild]').map(s => [s.dataset.bild, s.value])), abschnitte: { galerie: $('#gal').checked } } }), 'Gespeichert. Die Website ist aktualisiert.');
     $('#up').onchange = async e => {
       for (const d of e.target.files) {
@@ -602,6 +612,49 @@
         <li><a href="https://search.google.com/test/rich-results?url=${encodeURIComponent(url + '/')}" target="_blank" rel="noopener">Google-Test für Rich Results öffnen</a></li>
         <li><a href="https://search.google.com/search-console" target="_blank" rel="noopener">Google Search Console</a> – Bestätigungscode unter Einstellungen eintragen</li></ul></div>`;
     $$('.balken span').forEach(s => s.style.height = s.dataset.h + '%');
+  };
+
+  // ===================== Laufband (Newsticker) =====================
+  ANSICHT.laufband = async () => {
+    const i = await api('/v/inhalt');
+    const L = { sichtbar: true, richtung: 'links', tempo: 4, link: '', text: { de: '', en: '' }, ...(i.einstellungen.laufband || {}) };
+    const ZIELE = [['', 'Kein Link'], ['/vormerken', 'Vormerkung'], ['/kennenlernen', 'Kennenlerngespräch'], ['/kontakt', 'Kontakt'], ['/retreats', 'Retreats & Termine'], ['/impressionen', 'Impressionen']];
+    const eigen = L.link && !ZIELE.some(([v]) => v === L.link);
+    main.innerHTML = kopf('Laufband') +
+      `<form class="karte" id="lb" novalidate>
+        <p class="klein">Das Laufband zieht unter dem Seitenkopf über jede Seite der Website, zum Beispiel für den Info-Zoom-Call. Fährt man mit der Maus darüber, bleibt es stehen.</p>
+        <label class="haken hinweisbox hinweisbox--gruen"><input type="checkbox" id="lb-an" ${L.sichtbar ? 'checked' : ''}><span><strong>Laufband auf der Website zeigen</strong></span></label>
+        <div class="raster2">
+          <div class="feld"><label for="lb-de">Meldungen Deutsch <span class="feld__hinweis">eine Meldung pro Zeile</span></label><textarea id="lb-de" rows="5">${esc(L.text.de || '')}</textarea></div>
+          <div class="feld"><label for="lb-en">Meldungen Englisch <span class="feld__hinweis">eine pro Zeile; leer = Deutsch</span></label><textarea id="lb-en" rows="5">${esc(L.text.en || '')}</textarea></div>
+        </div>
+        <div class="raster3">
+          <fieldset class="musikwahl"><legend>Laufrichtung</legend>
+            <label class="haken"><input type="radio" name="ri" value="links" ${L.richtung !== 'rechts' ? 'checked' : ''}><span>← nach links (üblich)</span></label>
+            <label class="haken"><input type="radio" name="ri" value="rechts" ${L.richtung === 'rechts' ? 'checked' : ''}><span>→ nach rechts</span></label></fieldset>
+          <div class="feld"><label for="lb-t">Geschwindigkeit <span class="feld__hinweis" id="lb-tw"></span></label><input id="lb-t" type="range" min="1" max="10" step="1" value="${L.tempo}"></div>
+          <div class="feld"><label for="lb-z">Klick führt zu</label><select id="lb-z">${ZIELE.map(([v, t]) => `<option value="${v}"${(!eigen && L.link === v) ? ' selected' : ''}>${t}</option>`).join('')}<option value="eigen"${eigen ? ' selected' : ''}>Eigene Adresse (z. B. Zoom-Link) …</option></select>
+            <input id="lb-u" placeholder="https://…" value="${eigen ? esc(L.link) : ''}" ${eigen ? '' : 'hidden'} aria-label="Eigene Adresse"></div>
+        </div>
+        <div class="feld"><label>Vorschau</label><div class="lb-vorschau" id="lb-vor"></div></div>
+        <div class="leiste"><button class="knopf">Laufband speichern</button></div></form>`;
+    const tw = () => { const v = Number($('#lb-t').value); $('#lb-tw').textContent = ['', 'sehr langsam', 'langsam', 'ruhig', 'ruhig', 'mittel', 'mittel', 'zügig', 'zügig', 'schnell', 'sehr schnell'][v]; };
+    const vorschau = () => {
+      const zeilen = $('#lb-de').value.split('\n').map(x => x.trim()).filter(Boolean);
+      const v = $('#lb-vor'); const px = 14 + Number($('#lb-t').value) * 12; const rechts = $('#lb-z') && $$('[name=ri]').find(x => x.checked)?.value === 'rechts';
+      const reihe = zeilen.map(z => `<span>${esc(z)}</span><img src="/assets/logo/mond-3.webp" width="14" height="14" alt="">`).join('');
+      v.innerHTML = $('#lb-an').checked && zeilen.length ? `<div class="lb-bahn"><div>${reihe}</div><div>${reihe}</div></div>` : '<p class="klein">Ausgeblendet.</p>';
+      const bahn = $('.lb-bahn', v); if (bahn) { bahn.style.animationDuration = Math.max(6, bahn.firstElementChild.scrollWidth / px) + 's'; bahn.style.animationDirection = rechts ? 'reverse' : 'normal'; }
+    };
+    $('#lb-z').onchange = () => { $('#lb-u').hidden = $('#lb-z').value !== 'eigen'; };
+    $('#lb').oninput = () => { tw(); vorschau(); merken(); }; tw(); vorschau();
+    $('#lb').onsubmit = async e => {
+      e.preventDefault();
+      const z = $('#lb-z').value; const link = z === 'eigen' ? $('#lb-u').value.trim() : z;
+      if (z === 'eigen' && !/^https:\/\//.test(link)) { meldung('Bitte eine vollständige Adresse mit https:// eingeben.', true); return; }
+      await sicher(() => api('/v/inhalt', { einstellungen: { laufband: { sichtbar: $('#lb-an').checked, richtung: $$('[name=ri]').find(x => x.checked).value, tempo: Number($('#lb-t').value), link, text: { de: $('#lb-de').value, en: $('#lb-en').value } } } }), 'Gespeichert. Die Website ist aktualisiert.');
+      S.ungespeichert = false;
+    };
   };
 
   // ===================== Einstellungen =====================

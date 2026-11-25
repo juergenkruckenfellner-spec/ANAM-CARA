@@ -219,7 +219,7 @@
   // ---------- Impressionen: Bildfolge mit Nebelübergang, keltische Pfeile, Wischen, Tastatur ----------
   d.querySelectorAll('[data-schau]').forEach(schau => {
     const bilder = [...schau.querySelectorAll('.schau__bild')]; if (bilder.length < 2) return;
-    const nr = schau.querySelector('[data-nr]'); const DAUER = ruhig.matches ? 11000 : 7500;
+    const nr = schau.querySelector('[data-nr]'); const DAUER = Math.max(3000, (Number(schau.dataset.tempo) || 7.5) * 1000) * (ruhig.matches ? 1.5 : 1);
     schau.style.setProperty('--dauer', DAUER + 'ms');
     let jetzt = 0, timer = 0, pause = false, sichtbar = false;
     const zeige = (n, nutzer) => {
@@ -253,6 +253,29 @@
     d.addEventListener('visibilitychange', planen);
     if ('IntersectionObserver' in window) new IntersectionObserver(es => { sichtbar = es[0].isIntersecting; planen(); }, { threshold: .35 }).observe(schau);
     else { sichtbar = true; planen(); }
+  });
+
+  // ---------- Bildbogen der Reise: Fotos verschwimmen ineinander, Tempo aus dem Dashboard ----------
+  d.querySelectorAll('[data-bogenschau]').forEach(bs => {
+    const bilder = [...bs.querySelectorAll('.bogenschau__bild')]; if (bilder.length < 2) return;
+    const DAUER = Math.max(3000, (Number(bs.dataset.tempo) || 6) * 1000) * (ruhig.matches ? 1.5 : 1);
+    let jetzt = 0, timer = 0, sichtbar = false;
+    const weiter = () => {
+      const alt = bilder[jetzt]; jetzt = (jetzt + 1) % bilder.length; const neu = bilder[jetzt];
+      neu.querySelectorAll('img[loading=lazy]').forEach(i => i.loading = 'eager');
+      bs.classList.remove('wechselt'); void bs.offsetWidth; bs.classList.add('wechselt');
+      alt.classList.remove('ist-aktiv'); alt.classList.add('geht'); setTimeout(() => alt.classList.remove('geht'), 2700);
+      neu.classList.add('ist-aktiv'); setTimeout(() => bs.classList.remove('wechselt'), 2900); planen();
+    };
+    const planen = () => { clearTimeout(timer); if (sichtbar && !d.hidden) timer = setTimeout(weiter, DAUER); };
+    d.addEventListener('visibilitychange', planen);
+    if ('IntersectionObserver' in window) new IntersectionObserver(es => { sichtbar = es[0].isIntersecting; planen(); }, { threshold: .2 }).observe(bs); else { sichtbar = true; planen(); }
+  });
+
+  // ---------- Laufband: gleichmäßiges Tempo, egal wie lang die Meldungen sind ----------
+  d.querySelectorAll('.laufband__bahn').forEach(bahn => {
+    const setz = () => { const px = 14 + (Number(bahn.dataset.tempo) || 4) * 12; const w = bahn.firstElementChild.scrollWidth; bahn.style.animationDuration = Math.max(8, w / px) + 's'; };
+    setz(); addEventListener('resize', setz); d.fonts?.ready.then(setz);
   });
 
   // ---------- Ritual: Feuer im Steinkreis, Funken und drei Atemzüge ----------

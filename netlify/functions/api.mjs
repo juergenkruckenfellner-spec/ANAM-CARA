@@ -4,8 +4,8 @@ import { SICHERHEIT, json, esc, id, sha, jetzt, emailOk, kurz, herkunftOk, seite
 import { brauche, anmelden, codeBestaetigen, sitzungsCookie, abmeldeCookie, neueEinladung, wer } from '../../lib/auth.mjs';
 import { sende, rahmen, absatz, knopf, mailBereit } from '../../lib/mail.mjs';
 import { portion, briefHtml, abmeldeLink, signatur } from '../../lib/nl.mjs';
-import { FELDER, musikVon } from '../../lib/inhalt-standard.mjs';
-import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD } from '../../lib/seiten.mjs';
+import { FELDER, musikVon, laufbandVon, tempoVon } from '../../lib/inhalt-standard.mjs';
+import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD, BOGEN_STANDARD } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
 
@@ -296,12 +296,25 @@ async function fotosImportieren(quellen) {
   await D.protokoll('System', 'Mitgelieferte Fotos in die Bildverwaltung übernommen'); await seitenNeu();
 }
 
+// Einmalig: Bildbogen der Reise mit den Irland-Fotos füllen, Schreibweise des Fotonachweises angleichen
+async function fotosNachpflegen() {
+  const s = await (await import('../../lib/store.mjs')).store?.(); if (!s || await s.getJSON('system/fotos-2')) return;
+  const bl = await D.bilder(); let geaendert = false;
+  for (const b of bl) if (b.credit === 'MoMent Photographie') { b.credit = 'MoMent Photography'; geaendert = true; }
+  if (geaendert) await D.bilderSpeichern(bl);
+  const id = k => bl.find(b => b.name === k + '.webp')?.id;
+  const rs = await D.retreats();
+  if (rs.length === 1 && !(rs[0].bilder || []).length) { const ids = BOGEN_STANDARD.map(id).filter(x => x && x !== rs[0].bild); if (ids.length) { rs[0].bilder = ids; await D.retreatsSpeichern(rs); } }
+  await s.setJSON('system/fotos-2', { zeit: jetzt() }); await seitenNeu();
+}
+
 async function verwaltung(req, p, m, admin, seite, u) {
   const b = m === 'GET' ? {} : (req.headers.get('content-type') || '').startsWith('application/json') ? await body(req) : null;
 
   if (p === '/status' && m === 'GET') {
     try { await B.beispieleAnlegen(); } catch (e) { console.error('Beispiele', e.message); }
     try { await fotosImportieren([seite, u.origin, env('URL')]); } catch (e) { console.error('Fotos übernehmen', e.message); }
+    try { await fotosNachpflegen(); } catch (e) { console.error('Fotos nachpflegen', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
@@ -331,6 +344,18 @@ async function verwaltung(req, p, m, admin, seite, u) {
       if (e.abschnitte) for (const s of ['stimmen', 'galerie']) if (typeof e.abschnitte[s] === 'boolean') E.abschnitte[s] = e.abschnitte[s];
       if (e.bildplaetze) for (const s of Object.keys(E.bildplaetze)) if (typeof e.bildplaetze[s] === 'string') E.bildplaetze[s] = e.bildplaetze[s];
       if (e.fristen) for (const s of Object.keys(E.fristen)) { const n = Number(e.fristen[s]); if (n >= 1 && n <= 120) E.fristen[s] = n; }
+      if (e.laufband) {
+        const L = E.laufband = laufbandVon(E); const n = e.laufband;
+        if (typeof n.sichtbar === 'boolean') L.sichtbar = n.sichtbar;
+        if (['links', 'rechts'].includes(n.richtung)) L.richtung = n.richtung;
+        const t = Number(n.tempo); if (t >= 1 && t <= 10) L.tempo = t;
+        if (typeof n.link === 'string') { const k = n.link.trim(); L.link = !k || k.startsWith('/') || /^https:\/\//.test(k) ? kurz(k, 300) : L.link; }
+        if (n.text) for (const sp of ['de', 'en']) if (typeof n.text[sp] === 'string') L.text[sp] = kurz(n.text[sp], 1200);
+      }
+      if (e.tempo) {
+        const T = E.tempo = tempoVon(E);
+        for (const k of ['impressionen', 'bogen']) { const t = Number(e.tempo[k]); if (t >= 3 && t <= 30) T[k] = t; }
+      }
       if (e.musik) {
         const M = E.musik = musikVon(E);
         if (['harfe', 'aus'].includes(e.musik.quelle) || (e.musik.quelle === 'datei' && M.datei)) M.quelle = e.musik.quelle;
@@ -359,7 +384,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
       const slug = String(r.slug || r.titel?.de || 'reise').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || id(4);
       return {
         id: vorher.id || r.id || id(6), slug, veroeffentlicht: !!r.veroeffentlicht, status: ['geplant', 'buchbar', 'ausgebucht', 'vorbei'].includes(r.status) ? r.status : 'geplant',
-        von: /^\d{4}-\d{2}-\d{2}$/.test(r.von) ? r.von : '', bis: /^\d{4}-\d{2}-\d{2}$/.test(r.bis) ? r.bis : '', plaetze: kurz(r.plaetze, 40), bild: kurz(r.bild, 40),
+        von: /^\d{4}-\d{2}-\d{2}$/.test(r.von) ? r.von : '', bis: /^\d{4}-\d{2}-\d{2}$/.test(r.bis) ? r.bis : '', plaetze: kurz(r.plaetze, 40), bild: kurz(r.bild, 40), bilder: (Array.isArray(r.bilder) ? r.bilder : []).filter(x => typeof x === 'string' && x).slice(0, 12).map(x => kurz(x, 40)),
         titel: zw(r.titel), ort: zw(r.ort), kurz: zw(r.kurz), text: zw(r.text), ablauf: zw(r.ablauf), leistungen: zw(r.leistungen), preis: zw(r.preis),
         infos: kurz(r.infos, 8000), packliste: (r.packliste || []).map(x => kurz(x, 200)).filter(Boolean).slice(0, 80),
         dokumente: vorher.dokumente || [], nachrichten: vorher.nachrichten || [],
@@ -448,7 +473,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     const l = await D.bilder(); await D.bilderSpeichern(l.filter(y => y.id !== b.id)); await D.dateiLoeschen('bild', b.id);
     const i = await D.inhalt(); for (const s in i.einstellungen.bildplaetze) if (i.einstellungen.bildplaetze[s] === b.id) i.einstellungen.bildplaetze[s] = '';
     await D.inhaltSpeichern(i);
-    const rs = await D.retreats(); rs.forEach(r => { if (r.bild === b.id) r.bild = ''; }); await D.retreatsSpeichern(rs);
+    const rs = await D.retreats(); rs.forEach(r => { if (r.bild === b.id) r.bild = ''; if (r.bilder) r.bilder = r.bilder.filter(x => x !== b.id); }); await D.retreatsSpeichern(rs);
     await D.protokoll(admin.email, 'Bild gelöscht'); await seitenNeu(); return json({ ok: true });
   }
   if (p === '/dokument' && m === 'POST') {

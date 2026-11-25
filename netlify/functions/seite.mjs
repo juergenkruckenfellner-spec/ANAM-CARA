@@ -71,7 +71,7 @@ export default async (req) => {
     if (k === 'kontakt' || k === 'kennen' || k === 'warte') return ok(S.formularSeite(ctx, k));
     if (k === 'galerie' && i.einstellungen.abschnitte.galerie) return ok(S.galerieSeite(ctx));
     if (k === 'impressionen' && S.impressionenBilder(ctx).length) return ok(S.impressionenSeite(ctx));
-    if (k === 'impressum') return ok(S.rechtsSeite(ctx, 'impressum', impressum(i, l)));
+    if (k === 'impressum') return ok(S.rechtsSeite(ctx, 'impressum', impressum(i, l, S.fotografen(ctx))));
     if (k === 'datenschutz') return ok(S.rechtsSeite(ctx, 'datenschutz', datenschutz(i, l)));
     if (k === 'nlBest' || k === 'nlAb') return new Response(S.nlSeite(ctx, k === 'nlBest' ? 'best' : 'ab', u.searchParams.get('t') || ''), { headers: { ...KOPF, 'netlify-cdn-cache-control': 'no-store' } });
   }
