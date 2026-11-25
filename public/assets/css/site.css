@@ -606,7 +606,8 @@ main,.fuss{overflow-x:clip}
 .impressionen--seite{margin-top:clamp(40px,6vw,72px);padding-top:clamp(40px,6vw,72px)}
 .schau{position:relative;outline:none}
 .schau:focus-visible{box-shadow:0 0 0 2px var(--glut)}
-.schau__buehne{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0c1410;isolation:isolate}
+.schau__buehne{position:relative;aspect-ratio:16/9;width:min(100%,calc((100vh - 250px) * 16 / 9));width:min(100%,calc((100svh - 250px) * 16 / 9));margin:0 auto;overflow:hidden;background:#0c1410;isolation:isolate}
+.impressionen .kopfzeile{margin-bottom:36px}
 .schau__bild{position:absolute;inset:0;margin:0;opacity:0;visibility:hidden;transition:opacity 2.6s ease,filter 2.6s ease,visibility 0s 2.6s;filter:blur(14px) brightness(1.5) saturate(.6)}
 .schau__bild.ist-aktiv{opacity:1;visibility:visible;filter:none;transition:opacity 2.4s ease .5s,filter 2.8s ease .4s,visibility 0s}
 .schau__bild.geht{opacity:0;visibility:visible;filter:blur(18px) brightness(1.7) saturate(.4);transition:opacity 2.6s ease,filter 2.4s ease}
@@ -625,7 +626,7 @@ main,.fuss{overflow-x:clip}
 .schau__nebel{position:absolute;inset:-10%;z-index:3;pointer-events:none;mix-blend-mode:screen;opacity:0;background:url(/assets/bilder/nebel-1.webp) center/cover,url(/assets/bilder/nebel-3.webp) 30% 60%/140% auto;transition:opacity 1.3s ease}
 .schau.wechselt .schau__nebel{opacity:.85;animation:nebelWirbel 2.8s ease-in-out}
 @keyframes nebelWirbel{0%{transform:translateX(-6%) scale(1)}50%{transform:translateX(0) scale(1.08)}100%{transform:translateX(6%) scale(1.02)}}
-.schau__leiste{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vw,48px);margin-top:26px}
+.schau__leiste{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vw,48px);margin-top:18px}
 .schau__pfeil{display:inline-grid;place-items:center;width:84px;height:56px;border-radius:999px;border:1px solid rgba(232,160,102,.4);background:transparent;color:var(--glut);cursor:pointer;transition:background .5s,color .5s,transform .5s;touch-action:manipulation}
 .schau__pfeil:hover,.schau__pfeil:focus-visible{background:rgba(232,160,102,.12);color:#FFD9A8;transform:scale(1.05)}
 .schau__pfeil:hover svg path:first-child{animation:spiraleDreh 1.2s ease}
@@ -635,15 +636,18 @@ main,.fuss{overflow-x:clip}
 .schau__fortschritt{position:absolute;left:0;bottom:0;z-index:4;height:2px;width:100%;background:linear-gradient(90deg,var(--glut),rgba(232,160,102,.2));transform-origin:0 50%;transform:scaleX(0)}
 .schau.laeuft .schau__fortschritt{animation:fortschritt var(--dauer,7s) linear}
 @keyframes fortschritt{to{transform:scaleX(1)}}
-@media (max-width:700px){.schau__buehne{aspect-ratio:4/5}.schau__bild figcaption{flex-direction:column;align-items:flex-start;gap:6px;padding-top:80px}.schau__pfeil{width:68px;height:48px}}
+@media (max-width:700px){.schau__buehne{aspect-ratio:4/5;width:min(100%,calc((100svh - 230px) * 4 / 5))}.schau__bild figcaption{flex-direction:column;align-items:flex-start;gap:6px;padding-top:80px}.schau__pfeil{width:68px;height:48px}}
 @media (prefers-reduced-motion:reduce){.schau__bild.ist-aktiv .schau__foto{animation:none}.schau.wechselt .schau__nebel{animation:none}}
 .foto-hg__rauch{position:absolute;inset:0;width:100%;height:100%;z-index:1;mix-blend-mode:screen;pointer-events:none}
 
 /* ---------- Laufband (Newsticker) unter dem Seitenkopf ---------- */
-.laufband{position:relative;display:block;overflow:hidden;border-top:1px solid var(--linie-nacht);background:linear-gradient(90deg,rgba(176,103,63,.22),rgba(18,28,23,.2) 50%,rgba(176,103,63,.22));color:var(--mond);text-decoration:none;font:700 .72rem/1 var(--text);letter-spacing:.2em;text-transform:uppercase;height:34px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.laufband{position:relative;display:block;overflow:hidden;border-top:1px solid var(--linie-nacht);background:linear-gradient(90deg,rgba(176,103,63,.22),rgba(18,28,23,.2) 50%,rgba(176,103,63,.22));color:var(--mond);text-decoration:none;font:700 .72rem/1 var(--text);letter-spacing:.2em;text-transform:uppercase;height:34px;contain:layout paint}
+.laufband::before,.laufband::after{content:"";position:absolute;top:0;bottom:0;width:7%;z-index:1;pointer-events:none}
+.laufband::before{left:0;background:linear-gradient(90deg,#16221c,rgba(22,34,28,0))}
+.laufband::after{right:0;background:linear-gradient(270deg,#16221c,rgba(22,34,28,0))}
 a.laufband:hover,a.laufband:focus-visible{color:#FFD9A8}
 .laufband__sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.laufband__bahn{display:flex;width:max-content;height:100%;align-items:center;animation:laufband 40s linear infinite;will-change:transform}
+.laufband__bahn{display:flex;width:max-content;height:100%;align-items:center;animation:laufband 60s linear infinite;will-change:transform;transform:translate3d(0,0,0);backface-visibility:hidden}
 .laufband__bahn[data-richtung="rechts"]{animation-direction:reverse}
 .laufband:hover .laufband__bahn,.laufband:focus-visible .laufband__bahn{animation-play-state:paused}
 .laufband__gruppe{display:flex;align-items:center;gap:28px;padding-right:28px;white-space:nowrap}

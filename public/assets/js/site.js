@@ -274,7 +274,7 @@
 
   // ---------- Laufband: gleichmäßiges Tempo, egal wie lang die Meldungen sind ----------
   d.querySelectorAll('.laufband__bahn').forEach(bahn => {
-    const setz = () => { const px = 14 + (Number(bahn.dataset.tempo) || 4) * 12; const w = bahn.firstElementChild.scrollWidth; bahn.style.animationDuration = Math.max(8, w / px) + 's'; };
+    const setz = () => { const px = 10 + (Number(bahn.dataset.tempo) || 4) * 7; const w = bahn.firstElementChild.scrollWidth; bahn.style.animationDuration = Math.max(8, w / px) + 's'; };
     setz(); addEventListener('resize', setz); d.fonts?.ready.then(setz);
   });
 

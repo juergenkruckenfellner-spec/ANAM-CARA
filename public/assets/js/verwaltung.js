@@ -641,7 +641,7 @@
     const tw = () => { const v = Number($('#lb-t').value); $('#lb-tw').textContent = ['', 'sehr langsam', 'langsam', 'ruhig', 'ruhig', 'mittel', 'mittel', 'zügig', 'zügig', 'schnell', 'sehr schnell'][v]; };
     const vorschau = () => {
       const zeilen = $('#lb-de').value.split('\n').map(x => x.trim()).filter(Boolean);
-      const v = $('#lb-vor'); const px = 14 + Number($('#lb-t').value) * 12; const rechts = $('#lb-z') && $$('[name=ri]').find(x => x.checked)?.value === 'rechts';
+      const v = $('#lb-vor'); const px = 10 + Number($('#lb-t').value) * 7; const rechts = $('#lb-z') && $$('[name=ri]').find(x => x.checked)?.value === 'rechts';
       const reihe = zeilen.map(z => `<span>${esc(z)}</span><img src="/assets/logo/mond-3.webp" width="14" height="14" alt="">`).join('');
       v.innerHTML = $('#lb-an').checked && zeilen.length ? `<div class="lb-bahn"><div>${reihe}</div><div>${reihe}</div></div>` : '<p class="klein">Ausgeblendet.</p>';
       const bahn = $('.lb-bahn', v); if (bahn) { bahn.style.animationDuration = Math.max(6, bahn.firstElementChild.scrollWidth / px) + 's'; bahn.style.animationDirection = rechts ? 'reverse' : 'normal'; }
