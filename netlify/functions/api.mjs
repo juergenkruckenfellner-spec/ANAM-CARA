@@ -8,7 +8,7 @@ import { FELDER, musikVon, laufbandVon, tempoVon } from '../../lib/inhalt-standa
 import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD, BOGEN_STANDARD } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
-import { fotosEigeneTauschen, datenNachpflegen } from '../../lib/fotowechsel.mjs';
+import { fotosEigeneTauschen, datenNachpflegen, impressionenUndBogen } from '../../lib/fotowechsel.mjs';
 import { mailPruefen, wacheLesen, sofortWarnen, empfaenger } from '../../lib/mailwache.mjs';
 
 const ip = req => req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for')?.split(',')[0] || 'lokal';
@@ -321,7 +321,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     try { await fotosImportieren([seite, u.origin, env('URL')]); } catch (e) { console.error('Fotos übernehmen', e.message); }
     try { await fotosNachpflegen(); } catch (e) { console.error('Fotos nachpflegen', e.message); }
     try { await fotosEigeneTauschen([seite, u.origin, env('URL')]); } catch (e) { console.error('Eigene Fotos', e.message); }
-    try { await datenNachpflegen(); } catch (e) { console.error('Nachpflegen', e.message); }
+    try { await datenNachpflegen(); await impressionenUndBogen(); } catch (e) { console.error('Nachpflegen', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
@@ -459,7 +459,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     await D.dateiSpeichern('bild', bid, buf, { typ });
     const l = await D.bilder();
     const name0 = kurz(decodeURIComponent(req.headers.get('x-name') || 'bild'), 120);
-    const eintrag = { id: bid, name: name0, titel: name0.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim(), b: Number(req.headers.get('x-b')) || 0, h: Number(req.headers.get('x-h')) || 0, alt: { de: kurz(decodeURIComponent(req.headers.get('x-alt') || ''), 200), en: '' }, galerie: false, zeit: jetzt(), groesse: buf.length };
+    const eintrag = { id: bid, name: name0, titel: name0.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim(), b: Number(req.headers.get('x-b')) || 0, h: Number(req.headers.get('x-h')) || 0, alt: { de: kurz(decodeURIComponent(req.headers.get('x-alt') || ''), 200), en: '' }, galerie: false, impression: true, zeit: jetzt(), groesse: buf.length };
     l.unshift(eintrag); await D.bilderSpeichern(l); await D.protokoll(admin.email, 'Bild hochgeladen');
     return json({ ok: true, bild: eintrag });
   }
