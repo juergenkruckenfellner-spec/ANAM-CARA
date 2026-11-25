@@ -274,13 +274,15 @@ async function doiStarten(email, name, lang, quelle, i, seite) {
 
 // Mitgelieferte Fotos einmalig in die Bildverwaltung übernehmen, damit Sabine und Nina sie
 // wie eigene Fotos tauschen, beschriften, sortieren oder löschen können.
-async function fotosImportieren(seite) {
+async function fotosImportieren(quellen) {
   const i = await D.inhalt(); if (i.einstellungen.fotosImportiert) return;
   const l = await D.bilder(); const neu = {}; const E = i.einstellungen;
   const schluessel = [...new Set([...IMPRESSIONEN_STANDARD, ...Object.values(PLATZ_STANDARD)])];
   for (const k of schluessel) {
     const S = STANDARD_BILDER[k]; const w = S.breiten[S.breiten.length - 1];
-    const r = await fetch(`${seite}${S.statisch}-${w}.webp`); if (!r.ok) throw new Error('Foto nicht erreichbar: ' + k);
+    let r = null; // eigene Adresse; falls die Domain noch nicht verbunden ist, die Netlify-Adresse
+    for (const q of [...new Set(quellen.filter(Boolean))]) { try { r = await fetch(`${q}${S.statisch}-${w}.webp`); if (r.ok) break; } catch { r = null; } }
+    if (!r?.ok) throw new Error('Foto nicht erreichbar: ' + k);
     const bid = id(8); await D.dateiSpeichern('bild', bid, Buffer.from(await r.arrayBuffer()), { typ: 'image/webp' });
     neu[k] = { id: bid, name: k + '.webp', b: S.b, h: S.h, alt: { ...S.alt }, galerie: false, impression: IMPRESSIONEN_STANDARD.includes(k), credit: S.credit || '', zeit: jetzt() };
   }
@@ -299,7 +301,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
 
   if (p === '/status' && m === 'GET') {
     try { await B.beispieleAnlegen(); } catch (e) { console.error('Beispiele', e.message); }
-    try { await fotosImportieren(seite); } catch (e) { console.error('Fotos übernehmen', e.message); }
+    try { await fotosImportieren([seite, u.origin, env('URL')]); } catch (e) { console.error('Fotos übernehmen', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
