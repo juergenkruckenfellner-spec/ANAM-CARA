@@ -8,7 +8,7 @@ import { FELDER, musikVon, laufbandVon, tempoVon } from '../../lib/inhalt-standa
 import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD, BOGEN_STANDARD } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
-import { fotosEigeneTauschen, datenNachpflegen, impressionenUndBogen } from '../../lib/fotowechsel.mjs';
+import { fotosEigeneTauschen, datenNachpflegen, impressionenUndBogen, sabinePortraet } from '../../lib/fotowechsel.mjs';
 import { mailPruefen, wacheLesen, sofortWarnen, empfaenger } from '../../lib/mailwache.mjs';
 
 const ip = req => req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for')?.split(',')[0] || 'lokal';
@@ -321,7 +321,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     try { await fotosImportieren([seite, u.origin, env('URL')]); } catch (e) { console.error('Fotos übernehmen', e.message); }
     try { await fotosNachpflegen(); } catch (e) { console.error('Fotos nachpflegen', e.message); }
     try { await fotosEigeneTauschen([seite, u.origin, env('URL')]); } catch (e) { console.error('Eigene Fotos', e.message); }
-    try { await datenNachpflegen(); await impressionenUndBogen(); } catch (e) { console.error('Nachpflegen', e.message); }
+    try { await datenNachpflegen(); await impressionenUndBogen(); await sabinePortraet([seite, u.origin, env('URL')]); } catch (e) { console.error('Nachpflegen', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }

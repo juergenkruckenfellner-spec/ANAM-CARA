@@ -4,7 +4,7 @@ import * as S from '../../lib/seiten.mjs';
 import { impressum, datenschutz } from '../../lib/recht.mjs';
 import { seitenUrl, esc, zeitraum, SICHERHEIT } from '../../lib/util.mjs';
 import { musikVon } from '../../lib/inhalt-standard.mjs';
-import { fotosEigeneTauschen, datenNachpflegen, impressionenUndBogen } from '../../lib/fotowechsel.mjs';
+import { fotosEigeneTauschen, datenNachpflegen, impressionenUndBogen, sabinePortraet } from '../../lib/fotowechsel.mjs';
 const musikCache = new Map();
 
 const KOPF = {
@@ -54,7 +54,7 @@ export default async (req) => {
   }
 
   try { await fotosEigeneTauschen([seitenUrl(req), u.origin, process.env.URL]); } catch (e) { console.error('Eigene Fotos', e.message); }
-  try { await datenNachpflegen(); await impressionenUndBogen(); } catch (e) { console.error('Nachpflegen', e.message); }
+  try { await datenNachpflegen(); await impressionenUndBogen(); await sabinePortraet([seitenUrl(req), u.origin, process.env.URL]); } catch (e) { console.error('Nachpflegen', e.message); }
   const [i, rs, bl, st] = await Promise.all([inhalt(), retreats(), bilder(), stimmen()]);
   const url = seitenUrl(req);
   const l = pfad === '/en/' || pfad.startsWith('/en/') ? 'en' : 'de';
