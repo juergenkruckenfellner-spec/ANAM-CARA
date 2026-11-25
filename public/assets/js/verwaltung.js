@@ -29,16 +29,29 @@
     catch (e) { main.innerHTML = `<p class="formular__fehler">${esc(e.message)}</p>`; }
   }
   addEventListener('hashchange', route);
+  document.addEventListener('click', e => {
+    const b = e.target.closest?.('#mailtest'); if (!b) return;
+    b.disabled = true; b.textContent = 'Prüfe …';
+    sicher(async () => { const r = await api('/v/mailwache', {}); await ANSICHT.uebersicht(); return r; }, 'Geprüft. Eine Testmail ist unterwegs – das Ergebnis der Zustellung zeigt die nächste Prüfung.');
+  });
 
   // ===================== Übersicht =====================
   const ANSICHT = {};
   ANSICHT.uebersicht = async () => {
-    const [u, chk] = await Promise.all([api('/v/uebersicht'), api('/v/check')]);
+    const [u, chk, mw] = await Promise.all([api('/v/uebersicht'), api('/v/check'), api('/v/mailwache').catch(() => ({}))]);
     S.zaehler = { anfragen: u.anfragenNeu, stimmen: u.stimmenOffen, buchungen: u.zahlungen.mahnbar }; navZeichnen('uebersicht', S.zaehler);
     const max = Math.max(1, ...u.besucheTage.map(t => t.n));
-    const rot = chk.befunde.filter(b => b.stufe === 'rot');
+    const rot = chk.befunde.filter(b => b.stufe === 'rot' && b.bereich !== 'Mail');
+    const W = mw.wache; const wRot = (W?.probleme || []).filter(p => p.stufe === 'rot'); const wGelb = (W?.probleme || []).filter(p => p.stufe === 'gelb');
+    const stand = W?.zeit ? new Date(W.zeit).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const wacheHtml = `<div class="hinweisbox ${wRot.length ? 'hinweisbox--rot' : wGelb.length ? '' : 'hinweisbox--gruen'} mailwache">
+      <strong>${!W ? 'Mail-Prüfung: noch nicht gelaufen' : wRot.length ? 'Achtung: Anfragen kommen eventuell nicht per Mail an!' : wGelb.length ? 'Mail-Prüfung: bitte ansehen' : 'Mail-Prüfung: alles in Ordnung'}</strong>
+      ${[...wRot, ...wGelb].length ? `<ul>${[...wRot, ...wGelb].map(p => `<li>${esc(p.text)}</li>`).join('')}</ul>` : ''}
+      <p class="klein">Anfragen gehen an <strong>${esc(mw.an || '')}</strong>. Die Website prüft das jeden Tag automatisch mit einer Testmail${stand ? ` (zuletzt ${stand})` : ''}. Alle Anfragen sind außerdem immer unter <a href="#anfragen">Anfragen</a> gespeichert.</p>
+      <button class="knopf knopf--klein knopf--leise" type="button" id="mailtest">Jetzt testen</button></div>`;
     main.innerHTML = kopf(`Guten ${new Date().getHours() < 11 ? 'Morgen' : 'Tag'}, ${esc(S.status.ich.name.split(' ')[0])}`, `<a class="knopf knopf--leise" href="/" target="_blank" rel="noopener">Website ansehen</a>`) +
       (S.status.entwurf ? `<div class="hinweisbox">Auf der Website stehen noch <strong>Entwurfstexte</strong> nach dem Fragebogen. Unter <a href="#texte">Texte</a> durch eure eigenen ersetzen.</div>` : '') +
+      wacheHtml +
       (rot.length ? `<div class="hinweisbox"><strong>Vor dem Start erledigen:</strong><ul>${rot.map(b => `<li>${esc(b.text)}</li>`).join('')}</ul></div>` : '') +
       `<div class="raster3">
         <a class="karte" href="#anfragen"><span class="zahl">${u.anfragenNeu}</span><br><span class="zahl-beschr">neue Anfragen</span></a>
@@ -687,7 +700,7 @@
     main.innerHTML = kopf('Einstellungen') +
       `<form class="karte" id="eins" novalidate><h2 class="h3">Angaben für Impressum, Fußzeile und Google</h2><div class="raster2">
         ${feld('wortlaut', 'Name laut Impressum', E.wortlaut)}${feld('rechtsform', 'Rechtsform', E.rechtsform, 'z. B. Gesellschaft bürgerlichen Rechts')}
-        ${feld('personen', 'Vertreten durch', E.personen)}${feld('email', 'E-Mail-Adresse (öffentlich)', E.email, 'Pflicht im Impressum')}
+        ${feld('personen', 'Vertreten durch', E.personen)}${feld('email', 'E-Mail-Adresse (öffentlich, empfängt alle Anfragen)', E.email, 'Steht im Impressum und auf der Kontaktseite; hierher gehen alle Anfragen und der tägliche Zustelltest')}
         ${feld('telefon', 'Telefon (öffentlich)', E.telefon, 'freiwillig')}${feld('uid', 'UID-Nummer oder „Kleinunternehmerin"', E.uid)}
         ${feld('firmenbuch', 'Firmenbuch / ZVR', E.firmenbuch)}${feld('kammer', 'Kammer, Gewerbe', E.kammer)}
         ${feld('veranstalter', 'Reiseveranstalter', E.veranstalter)}${feld('gscToken', 'Google Search Console Code', E.gscToken, 'nur der Wert aus content="…"')}

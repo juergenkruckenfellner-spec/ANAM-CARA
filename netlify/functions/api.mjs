@@ -8,7 +8,8 @@ import { FELDER, musikVon, laufbandVon, tempoVon } from '../../lib/inhalt-standa
 import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD, BOGEN_STANDARD } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
-import { fotosEigeneTauschen } from '../../lib/fotowechsel.mjs';
+import { fotosEigeneTauschen, datenNachpflegen } from '../../lib/fotowechsel.mjs';
+import { mailPruefen, wacheLesen, sofortWarnen, empfaenger } from '../../lib/mailwache.mjs';
 
 const ip = req => req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for')?.split(',')[0] || 'lokal';
 const body = async req => { try { return await req.json(); } catch { return {}; } };
@@ -52,13 +53,16 @@ export default async (req) => {
       const a = await D.anfrageSpeichern({ art, name: kurz(b.name, 120), email: b.email.trim().toLowerCase(), telefon: kurz(b.telefon, 40), retreat: r ? r.titel.de + ' · ' + zeitraum(r.von, r.bis) : '', retreatId: r ? r.id : '', wann: kurz(b.wann, 200), nachricht: kurz(b.nachricht, 4000), sprache: en ? 'en' : 'de', newsletter: b.newsletter === 'ja' });
       const i = await D.inhalt();
       const ARTEN = { anfrage: 'Allgemeine Anfrage', retreat: 'Anfrage zu einer Reise', kennen: 'Kennenlerngespräch', warte: 'Vormerkung' };
-      const an = env('MAIL_EMPFAENGER') || i.einstellungen.email;
-      if (an) await sende({ an, antwortAn: a.email, betreff: `${ARTEN[art]}: ${a.name}`, html: rahmen(
+      const an = empfaenger(i);
+      const gemeldet = await sende({ an, antwortAn: a.email, betreff: `${ARTEN[art]}: ${a.name}`, html: rahmen(
         `<p style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#A9521B;margin:0 0 10px">${ARTEN[art]}</p>` +
         [['Name', a.name], ['E-Mail', a.email], ['Telefon', a.telefon], ['Reise', a.retreat], ['Gesprächszeit', a.wann], ['Nachricht', a.nachricht], ['Newsletter gewünscht', a.newsletter ? 'ja (Bestätigungsmail ist unterwegs)' : '']]
           .filter(x => x[1]).map(([k, v]) => `<p style="margin:0 0 10px"><strong>${k}</strong><br>${esc(v).replace(/\n/g, '<br>')}</p>`).join('') +
         knopf(seite + '/verwaltung#anfragen', 'Im Dashboard öffnen'), seite), text: `${ARTEN[art]} von ${a.name} <${a.email}>\n\n${a.nachricht}` });
-      await sende({ an: a.email, betreff: en ? 'Your message to Anam Cara' : 'Deine Nachricht an Anam Cara', html: rahmen(
+      a.meldung = { an, ok: gemeldet.ok, id: gemeldet.id || '', status: gemeldet.ok ? 'sent' : 'fehler', fehler: gemeldet.ok ? '' : String(gemeldet.fehler || gemeldet.status).slice(0, 200) };
+      await D.anfrageSpeichern(a);
+      if (!gemeldet.ok) await sofortWarnen(`Die Anfrage von ${a.name} (${a.email}) konnte nicht per Mail an ${an} gemeldet werden. Sie liegt unter „Anfragen“ – bitte direkt beantworten und den Mailversand prüfen.`).catch(() => {});
+      await sende({ an: a.email, antwortAn: an, betreff: en ? 'Your message to Anam Cara' : 'Deine Nachricht an Anam Cara', html: rahmen(
         absatz(en ? `Dear ${a.name},` : `Liebe/r ${a.name},`) + absatz(i.texte[en ? 'en' : 'de']['kontakt.danke']) + absatz(en ? 'Warm regards, Sabine & Nina' : 'Herzlich, Sabine & Nina'), seite),
         text: i.texte[en ? 'en' : 'de']['kontakt.danke'] });
       if (a.newsletter) await doiStarten(a.email, a.name, en ? 'en' : 'de', 'formular-' + art, i, seite);
@@ -202,7 +206,7 @@ export default async (req) => {
         const b = await body(req); if (!kurz(b.text)) return json({ fehler: 'Bitte schreib deine Frage.' }, 400);
         const r = meine.find(x => x.id === b.rid);
         await D.anfrageSpeichern({ art: 'teilnehmerin', name: k.name, email: k.email, telefon: k.telefon || '', retreat: r ? r.titel.de : '', nachricht: kurz(b.text, 4000), sprache: 'de' });
-        const i = await D.inhalt(); const an = env('MAIL_EMPFAENGER') || i.einstellungen.email;
+        const i = await D.inhalt(); const an = empfaenger(i);
         if (an) await sende({ an, antwortAn: k.email, betreff: `Frage von ${k.name} (Teilnehmerin)`, html: rahmen(absatz(kurz(b.text, 4000)) + knopf(seite + '/verwaltung#anfragen', 'Im Dashboard öffnen'), seite), text: kurz(b.text, 4000) });
         return json({ ok: true });
       }
@@ -317,6 +321,7 @@ async function verwaltung(req, p, m, admin, seite, u) {
     try { await fotosImportieren([seite, u.origin, env('URL')]); } catch (e) { console.error('Fotos übernehmen', e.message); }
     try { await fotosNachpflegen(); } catch (e) { console.error('Fotos nachpflegen', e.message); }
     try { await fotosEigeneTauschen([seite, u.origin, env('URL')]); } catch (e) { console.error('Eigene Fotos', e.message); }
+    try { await datenNachpflegen(); } catch (e) { console.error('Nachpflegen', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
@@ -712,6 +717,8 @@ async function verwaltung(req, p, m, admin, seite, u) {
     return json({ ok: true });
   }
   if (p === '/protokoll' && m === 'GET') return json(await D.protokollLesen());
+  if (p === '/mailwache' && m === 'GET') return json({ wache: await wacheLesen(), an: empfaenger(await D.inhalt()) });
+  if (p === '/mailwache' && m === 'POST') { const w = await mailPruefen(seite, { anlass: 'von Hand' }); await D.protokoll(admin.email, 'Mail-Test von Hand'); return json({ wache: w }); }
   if (p === '/aufraeumen' && m === 'POST') { const n = await D.aufraeumen(); return json({ ok: true, geloescht: n }); }
 
   return json({ fehler: 'Nicht gefunden.' }, 404);
@@ -744,6 +751,7 @@ async function sichtbarkeitsCheck() {
   }
   if (!E.gscToken) add('gelb', 'Google', 'Google Search Console ist noch nicht verbunden (Bestätigungscode unter Einstellungen eintragen).', 'einstellungen');
   if (!E.abschnitte.stimmen) add('hinweis', 'Vertrauen', 'Stimmen von Teilnehmerinnen sind ausgeblendet. Nach der ersten Reise Rückmeldungen freigeben und einschalten.', 'stimmen');
+  { const w = await wacheLesen(); if (w) for (const pr of (w.probleme || [])) add(pr.stufe, 'Mail', pr.text, 'technik'); else add('gelb', 'Mail', 'Die tägliche Mail-Prüfung ist noch nicht gelaufen.', 'technik'); }
   if (!env('RESEND_API_KEY') && env('MAIL_TESTMODUS') !== '1') add('rot', 'Technik', 'Kein Mailversand eingerichtet (RESEND_API_KEY). Formulare werden gespeichert, aber nicht per Mail gemeldet; Anmeldecodes können nicht zugestellt werden.', 'technik');
   return { befunde, stand: jetzt() };
 }

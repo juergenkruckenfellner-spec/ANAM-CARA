@@ -151,3 +151,6 @@ dialog .haken{margin:8px 0}
 .marke--galerie{background:#efe4f1;color:#5a2d63}
 .marke--frei{background:#f3f3f3;color:#777}
 .bildkachel[hidden]{display:none}
+
+.hinweisbox--rot{border-color:#b3261e;background:#fdecea;color:#5c1410}
+.mailwache ul{margin:8px 0}
