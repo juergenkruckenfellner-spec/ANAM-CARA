@@ -720,3 +720,7 @@ main > .breitbild:last-child{margin-bottom:calc(var(--abstand) * -1)}
   .fuss__ende{flex-direction:row;gap:8px 12px}
   .fuss__klein{min-width:0;font-size:.68rem}
 }
+
+.fuss__design{display:block;margin-top:4px;font-size:.92rem;letter-spacing:.06em;opacity:1;color:var(--mond)}
+.fuss__design a{color:var(--glut);text-decoration:none;border-bottom:1px solid rgba(232,160,102,.45)}
+@media (max-width:760px){.fuss__design{font-size:.86rem;margin-top:6px}}
