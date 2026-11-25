@@ -70,6 +70,7 @@ export default async (req) => {
     if (k === 'ueber') return ok(S.ueberSeite(ctx));
     if (k === 'kontakt' || k === 'kennen' || k === 'warte') return ok(S.formularSeite(ctx, k));
     if (k === 'galerie' && i.einstellungen.abschnitte.galerie) return ok(S.galerieSeite(ctx));
+    if (k === 'impressionen' && S.impressionenBilder(ctx).length) return ok(S.impressionenSeite(ctx));
     if (k === 'impressum') return ok(S.rechtsSeite(ctx, 'impressum', impressum(i, l)));
     if (k === 'datenschutz') return ok(S.rechtsSeite(ctx, 'datenschutz', datenschutz(i, l)));
     if (k === 'nlBest' || k === 'nlAb') return new Response(S.nlSeite(ctx, k === 'nlBest' ? 'best' : 'ab', u.searchParams.get('t') || ''), { headers: { ...KOPF, 'netlify-cdn-cache-control': 'no-store' } });
@@ -84,7 +85,7 @@ export default async (req) => {
 
 function sitemap(ctx) {
   const { url, rs, i } = ctx; const R = S.ROUTEN;
-  const keys = ['start', 'retreats', 'ueber', 'kennen', 'warte', 'kontakt', 'impressum', 'datenschutz', ...(i.einstellungen.abschnitte.galerie ? ['galerie'] : [])];
+  const keys = ['start', 'retreats', 'impressionen', 'ueber', 'kennen', 'warte', 'kontakt', 'impressum', 'datenschutz', ...(i.einstellungen.abschnitte.galerie ? ['galerie'] : [])];
   const eintrag = (de, en) => ['de', 'en'].map(l => `<url><loc>${url}${l === 'de' ? de : en}</loc><xhtml:link rel="alternate" hreflang="de-AT" href="${url}${de}"/><xhtml:link rel="alternate" hreflang="en" href="${url}${en}"/></url>`).join('');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
@@ -127,6 +128,6 @@ ${[1, 2, 3, 4, 5, 6].map(n => `- ${T[`faq.${n}.f`]} ${T[`faq.${n}.a`]}`).join('\
 }
 
 export const config = {
-  path: ['/', '/en', '/en/*', '/retreats', '/retreats/*', '/ueber-uns', '/kennenlernen', '/vormerken', '/kontakt', '/galerie',
+  path: ['/', '/en', '/en/*', '/retreats', '/retreats/*', '/ueber-uns', '/kennenlernen', '/vormerken', '/kontakt', '/galerie', '/impressionen',
     '/impressum', '/datenschutz', '/newsletter/*', '/bild/*', '/musik/*', '/sitemap.xml', '/llms.txt'],
 };

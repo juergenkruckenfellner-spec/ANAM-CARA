@@ -5,7 +5,7 @@ import { brauche, anmelden, codeBestaetigen, sitzungsCookie, abmeldeCookie, neue
 import { sende, rahmen, absatz, knopf, mailBereit } from '../../lib/mail.mjs';
 import { portion, briefHtml, abmeldeLink, signatur } from '../../lib/nl.mjs';
 import { FELDER, musikVon } from '../../lib/inhalt-standard.mjs';
-import { ROUTEN, retreatPfad } from '../../lib/seiten.mjs';
+import { ROUTEN, retreatPfad, STANDARD_BILDER, PLATZ_STANDARD, IMPRESSIONEN_STANDARD } from '../../lib/seiten.mjs';
 import crypto from 'node:crypto';
 import * as B from '../../lib/buchhaltung.mjs';
 
@@ -272,11 +272,34 @@ async function doiStarten(email, name, lang, quelle, i, seite) {
     text: link });
 }
 
+// Mitgelieferte Fotos einmalig in die Bildverwaltung übernehmen, damit Sabine und Nina sie
+// wie eigene Fotos tauschen, beschriften, sortieren oder löschen können.
+async function fotosImportieren(seite) {
+  const i = await D.inhalt(); if (i.einstellungen.fotosImportiert) return;
+  const l = await D.bilder(); const neu = {}; const E = i.einstellungen;
+  const schluessel = [...new Set([...IMPRESSIONEN_STANDARD, ...Object.values(PLATZ_STANDARD)])];
+  for (const k of schluessel) {
+    const S = STANDARD_BILDER[k]; const w = S.breiten[S.breiten.length - 1];
+    const r = await fetch(`${seite}${S.statisch}-${w}.webp`); if (!r.ok) throw new Error('Foto nicht erreichbar: ' + k);
+    const bid = id(8); await D.dateiSpeichern('bild', bid, Buffer.from(await r.arrayBuffer()), { typ: 'image/webp' });
+    neu[k] = { id: bid, name: k + '.webp', b: S.b, h: S.h, alt: { ...S.alt }, galerie: false, impression: IMPRESSIONEN_STANDARD.includes(k), credit: S.credit || '', zeit: jetzt() };
+  }
+  const reihe = [...IMPRESSIONEN_STANDARD, ...schluessel.filter(k => !IMPRESSIONEN_STANDARD.includes(k))].map(k => neu[k]);
+  await D.bilderSpeichern([...reihe, ...l]);
+  const frisch = await D.inhalt(); // erneut lesen, damit nichts Zwischenzeitliches verloren geht
+  for (const [platz, k] of Object.entries(PLATZ_STANDARD)) if (!frisch.einstellungen.bildplaetze[platz]) frisch.einstellungen.bildplaetze[platz] = neu[k].id;
+  frisch.einstellungen.fotosImportiert = true; await D.inhaltSpeichern(frisch);
+  const rs = await D.retreats(); const r = rs.find(x => !x.bild);
+  if (r && rs.length === 1) { r.bild = neu['temple-house']?.id || ''; await D.retreatsSpeichern?.(rs); }
+  await D.protokoll('System', 'Mitgelieferte Fotos in die Bildverwaltung übernommen'); await seitenNeu();
+}
+
 async function verwaltung(req, p, m, admin, seite, u) {
   const b = m === 'GET' ? {} : (req.headers.get('content-type') || '').startsWith('application/json') ? await body(req) : null;
 
   if (p === '/status' && m === 'GET') {
     try { await B.beispieleAnlegen(); } catch (e) { console.error('Beispiele', e.message); }
+    try { await fotosImportieren(seite); } catch (e) { console.error('Fotos übernehmen', e.message); }
     const i = await D.inhalt();
     return json({ mail: mailBereit(), sms: !!(env('SEVEN_API_KEY') && env('SMS_ANBIETER') === 'seven'), deepl: !!env('DEEPL_API_KEY'), zfAus: env('ZF_AUS') === '1', entwurf: i.entwurf, ich: { id: admin.id, name: admin.name, email: admin.email, benutzer: admin.benutzer || '', telefon: admin.telefon || '' }, felder: FELDER });
   }
@@ -410,7 +433,14 @@ async function verwaltung(req, p, m, admin, seite, u) {
     const l = await D.bilder(); const x = l.find(y => y.id === b.id); if (!x) return json({ fehler: 'Nicht gefunden.' }, 404);
     if (b.alt) x.alt = { de: kurz(b.alt.de, 200), en: kurz(b.alt.en, 200) };
     if (typeof b.galerie === 'boolean') x.galerie = b.galerie;
+    if (typeof b.impression === 'boolean') x.impression = b.impression;
+    if (typeof b.credit === 'string') x.credit = kurz(b.credit, 80);
     await D.bilderSpeichern(l); await seitenNeu(); return json({ ok: true });
+  }
+  if (p === '/bild/verschieben' && m === 'POST') { // Reihenfolge (auch der Impressionen) ändern
+    const l = await D.bilder(); const n = l.findIndex(y => y.id === b.id); const z = n + (b.richtung === 'vor' ? -1 : 1);
+    if (n < 0 || z < 0 || z >= l.length) return json({ ok: true });
+    [l[n], l[z]] = [l[z], l[n]]; await D.bilderSpeichern(l); await seitenNeu(); return json({ ok: true });
   }
   if (p === '/bild/loeschen' && m === 'POST') {
     const l = await D.bilder(); await D.bilderSpeichern(l.filter(y => y.id !== b.id)); await D.dateiLoeschen('bild', b.id);

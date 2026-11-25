@@ -576,3 +576,65 @@ main,.fuss{overflow-x:clip}
 .weg__liste li.ist-da .logomond img{opacity:1;transform:none;transition:opacity 1.4s .3s,transform 1.6s cubic-bezier(.22,.61,.36,1) .3s}
 .weg__liste li:hover .logomond img{transform:scale(1.08) rotate(6deg);transition:transform .8s cubic-bezier(.22,.61,.36,1)}
 @media (max-width:900px){.weg__liste{--mg:46px}.weg__liste::before{left:calc(var(--mg) / 2 - 1px);right:auto;top:0;bottom:0;width:2px;height:auto;background:linear-gradient(180deg,rgba(232,196,168,.85),rgba(214,150,108,.9) 50%,rgba(232,196,168,.85))}.weg__liste li{grid-template-columns:var(--mg) 1fr}.logomond{margin-bottom:0}}
+
+/* ---------- Fotohintergründe mit mystischer Bewegung ---------- */
+.foto-hg{--schleier:.6;position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--nacht)}
+.foto-hg--dunkel{--schleier:.7}
+.foto-hg__bild{position:absolute;inset:-8% 0;width:100%;height:116%;object-fit:cover;transform:translate3d(0,calc(var(--sp,0) * -6%),0) scale(1.08);animation:fotoAtmet 38s ease-in-out infinite alternate;will-change:transform;filter:saturate(.8) contrast(1.05)}
+@keyframes fotoAtmet{from{scale:1}to{scale:1.12}}
+.foto-hg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(18,28,23,calc(var(--schleier) + .12)) 0%,rgba(18,28,23,var(--schleier)) 45%,rgba(18,28,23,calc(var(--schleier) + .2)) 100%),radial-gradient(ellipse at 70% 30%,transparent 0,rgba(18,28,23,.35) 70%)}
+.foto-hg__nebel{position:absolute;left:0;right:0;bottom:-5%;height:60%;z-index:1;mix-blend-mode:screen;opacity:.45;overflow:hidden}
+.foto-hg__nebel::before{content:"";position:absolute;inset:0 auto 0 0;width:calc(100% + 1792px);background:url(/assets/bilder/nebel-1.webp) repeat-x 0 0/1792px 100%;animation:nebelZieht 80s linear infinite}
+.foto-hg__nebel--2{top:8%;bottom:auto;height:45%;opacity:.25;animation:nebelAtmet 16s ease-in-out infinite}
+.foto-hg__nebel--2::before{background-image:url(/assets/bilder/nebel-3.webp);animation-duration:56s;animation-direction:reverse}
+.foto-hg__licht{position:absolute;right:8%;top:6%;width:46%;height:52%;z-index:1;border-radius:50%;background:radial-gradient(closest-side,rgba(255,200,140,.22),transparent);mix-blend-mode:screen;filter:blur(20px);animation:schimmer 14s ease-in-out infinite}
+.foto-hg::after{z-index:0}
+.reisen--foto{position:relative;isolation:isolate;overflow:hidden;background:var(--nacht)}
+.reisen > .foto-hg{max-width:none;margin:0}
+.gratis__gross{overflow:hidden;isolation:isolate}
+.gratis__gross > .foto-hg{z-index:-1}
+.breitbild--mystisch{position:relative;overflow:hidden}
+.breitbild--mystisch img{animation:fotoAtmet 40s ease-in-out infinite alternate}
+.breitbild--mystisch .foto-hg__nebel{height:55%;opacity:.5}
+@media (max-width:700px){.foto-hg__nebel::before{background-size:1100px 100%;width:calc(100% + 1100px);animation-name:nebelZiehtMobil}}
+@media (prefers-reduced-motion:reduce){.foto-hg__bild,.breitbild--mystisch img{animation-duration:120s}.foto-hg__nebel::before{animation-duration:260s!important}}
+
+/* ---------- Impressionen: Bildfolge, die sich in Nebel auflöst ---------- */
+.impressionen{max-width:none;background:var(--nacht) var(--korn);color:var(--mond);margin-top:var(--abstand);padding-bottom:var(--abstand)}
+.impressionen > *{max-width:var(--breit);margin-left:auto;margin-right:auto}
+.impressionen .h2{color:var(--mond)}.impressionen .vorzeile{color:var(--glut)}.impressionen .pfeil{color:var(--mond)}
+.impressionen--seite{margin-top:clamp(40px,6vw,72px);padding-top:clamp(40px,6vw,72px)}
+.schau{position:relative;outline:none}
+.schau:focus-visible{box-shadow:0 0 0 2px var(--glut)}
+.schau__buehne{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0c1410;isolation:isolate}
+.schau__bild{position:absolute;inset:0;margin:0;opacity:0;visibility:hidden;transition:opacity 2.6s ease,filter 2.6s ease,visibility 0s 2.6s;filter:blur(14px) brightness(1.5) saturate(.6)}
+.schau__bild.ist-aktiv{opacity:1;visibility:visible;filter:none;transition:opacity 2.4s ease .5s,filter 2.8s ease .4s,visibility 0s}
+.schau__bild.geht{opacity:0;visibility:visible;filter:blur(18px) brightness(1.7) saturate(.4);transition:opacity 2.6s ease,filter 2.4s ease}
+.schau__foto,.schau__fuell{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.schau__bild.ist-aktiv .schau__foto{animation:kenBurns 14s ease-out both}
+.schau__bild:nth-child(even).ist-aktiv .schau__foto{animation-name:kenBurns2}
+@keyframes kenBurns{from{transform:scale(1.14) translate(1.5%,1%)}to{transform:scale(1.02) translate(0,0)}}
+@keyframes kenBurns2{from{transform:scale(1.02) translate(-1%,0)}to{transform:scale(1.14) translate(1.5%,-1%)}}
+.schau__bild--hoch .schau__fuell{filter:blur(26px) brightness(.55);transform:scale(1.2)}
+.schau__bild--hoch .schau__foto{object-fit:contain}
+.schau__bild--hoch.ist-aktiv .schau__foto{animation-name:kenBurnsHoch}
+@keyframes kenBurnsHoch{from{transform:scale(1.06)}to{transform:scale(1)}}
+.schau__bild figcaption{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:60px clamp(18px,3vw,36px) 22px;background:linear-gradient(0deg,rgba(12,20,16,.78),transparent);display:flex;justify-content:space-between;align-items:flex-end;gap:16px;font:italic 300 clamp(1.05rem,1.6vw,1.35rem)/1.35 var(--anzeige);color:var(--mond);opacity:0;transform:translateY(10px);transition:opacity 1.4s ease 2s,transform 1.4s ease 2s}
+.schau__bild.ist-aktiv figcaption{opacity:1;transform:none}
+.schau__bild figcaption small{font:400 .72rem var(--text);letter-spacing:.14em;text-transform:uppercase;opacity:.6;white-space:nowrap}
+.schau__nebel{position:absolute;inset:-10%;z-index:3;pointer-events:none;mix-blend-mode:screen;opacity:0;background:url(/assets/bilder/nebel-1.webp) center/cover,url(/assets/bilder/nebel-3.webp) 30% 60%/140% auto;transition:opacity 1.3s ease}
+.schau.wechselt .schau__nebel{opacity:.85;animation:nebelWirbel 2.8s ease-in-out}
+@keyframes nebelWirbel{0%{transform:translateX(-6%) scale(1)}50%{transform:translateX(0) scale(1.08)}100%{transform:translateX(6%) scale(1.02)}}
+.schau__leiste{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vw,48px);margin-top:26px}
+.schau__pfeil{display:inline-grid;place-items:center;width:84px;height:56px;border-radius:999px;border:1px solid rgba(232,160,102,.4);background:transparent;color:var(--glut);cursor:pointer;transition:background .5s,color .5s,transform .5s;touch-action:manipulation}
+.schau__pfeil:hover,.schau__pfeil:focus-visible{background:rgba(232,160,102,.12);color:#FFD9A8;transform:scale(1.05)}
+.schau__pfeil:hover svg path:first-child{animation:spiraleDreh 1.2s ease}
+@keyframes spiraleDreh{50%{opacity:.4}}
+.schau__zahl{margin:0;font:300 1.5rem/1 var(--anzeige);letter-spacing:.12em;color:var(--mond);min-width:4.5em;text-align:center}
+.schau__zahl i{color:var(--glut);font-style:normal;margin:0 .2em}
+.schau__fortschritt{position:absolute;left:0;bottom:0;z-index:4;height:2px;width:100%;background:linear-gradient(90deg,var(--glut),rgba(232,160,102,.2));transform-origin:0 50%;transform:scaleX(0)}
+.schau.laeuft .schau__fortschritt{animation:fortschritt var(--dauer,7s) linear}
+@keyframes fortschritt{to{transform:scaleX(1)}}
+@media (max-width:700px){.schau__buehne{aspect-ratio:4/5}.schau__bild figcaption{flex-direction:column;align-items:flex-start;gap:6px;padding-top:80px}.schau__pfeil{width:68px;height:48px}}
+@media (prefers-reduced-motion:reduce){.schau__bild.ist-aktiv .schau__foto{animation:none}.schau.wechselt .schau__nebel{animation:none}}
+.foto-hg__rauch{position:absolute;inset:0;width:100%;height:100%;z-index:1;mix-blend-mode:screen;pointer-events:none}

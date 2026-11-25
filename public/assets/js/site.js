@@ -204,6 +204,57 @@
     ebene(c3, { art: 'zieht', sprites: () => rauchSprites('240,232,220'), anzahl: 10, mobil: .6, alpha: .16, groesse: [200, 360], tempo: [.25, .5], band: [.15, .6], rechtsAnteil: .5, zeiger: held, beobachte: held });
   }
 
+  // ---------- Fotohintergründe: Parallaxe beim Scrollen + ziehender Rauch ----------
+  const hgs = [...d.querySelectorAll('.foto-hg')];
+  if (hgs.length) {
+    let anst = false;
+    const hgRechnen = () => { anst = false; const vh = innerHeight; for (const h of hgs) { const r = h.getBoundingClientRect(); if (r.bottom < -100 || r.top > vh + 100) continue; const p = ((r.top + r.height / 2) - vh / 2) / (vh / 2 + r.height / 2); h.style.setProperty('--sp', Math.max(-1, Math.min(1, p)).toFixed(3)); } };
+    addEventListener('scroll', () => { if (!anst) { anst = true; requestAnimationFrame(hgRechnen); } }, { passive: true }); hgRechnen();
+    for (const h of hgs) { // feine Rauchschwaden über dem Foto
+      const c = d.createElement('canvas'); c.className = 'foto-hg__rauch'; h.append(c);
+      ebene(c, { art: 'zieht', sprites: () => rauchSprites('230,224,212'), anzahl: 12, mobil: .6, alpha: .3, groesse: [180, 360], tempo: [.15, .35], band: [.35, 1], rechtsAnteil: .6, beobachte: h });
+    }
+  }
+
+  // ---------- Impressionen: Bildfolge mit Nebelübergang, keltische Pfeile, Wischen, Tastatur ----------
+  d.querySelectorAll('[data-schau]').forEach(schau => {
+    const bilder = [...schau.querySelectorAll('.schau__bild')]; if (bilder.length < 2) return;
+    const nr = schau.querySelector('[data-nr]'); const DAUER = ruhig.matches ? 11000 : 7500;
+    schau.style.setProperty('--dauer', DAUER + 'ms');
+    let jetzt = 0, timer = 0, pause = false, sichtbar = false;
+    const zeige = (n, nutzer) => {
+      n = (n + bilder.length) % bilder.length; if (n === jetzt) return;
+      const alt = bilder[jetzt], neu = bilder[n];
+      schau.classList.remove('wechselt'); void schau.offsetWidth; schau.classList.add('wechselt');
+      alt.classList.remove('ist-aktiv'); alt.classList.add('geht'); alt.setAttribute('aria-hidden', 'true');
+      setTimeout(() => alt.classList.remove('geht'), 2700);
+      neu.querySelectorAll('img[loading=lazy]').forEach(i => i.loading = 'eager');
+      neu.classList.add('ist-aktiv'); neu.removeAttribute('aria-hidden');
+      bilder[(n + 1) % bilder.length].querySelectorAll('img[loading=lazy]').forEach(i => i.loading = 'eager'); // nächstes vorladen
+      jetzt = n; nr.textContent = n + 1; setTimeout(() => schau.classList.remove('wechselt'), 2900);
+      planen(nutzer);
+    };
+    const fort = schau.querySelector('.schau__fortschritt');
+    const planen = () => {
+      clearTimeout(timer); schau.classList.remove('laeuft');
+      if (pause || !sichtbar || d.hidden) return;
+      void fort.offsetWidth; schau.classList.add('laeuft');
+      timer = setTimeout(() => zeige(jetzt + 1), DAUER);
+    };
+    schau.querySelector('[data-weiter]').onclick = () => zeige(jetzt + 1, true);
+    schau.querySelector('[data-zurueck]').onclick = () => zeige(jetzt - 1, true);
+    schau.addEventListener('keydown', e => { if (e.key === 'ArrowRight') { e.preventDefault(); zeige(jetzt + 1, true); } if (e.key === 'ArrowLeft') { e.preventDefault(); zeige(jetzt - 1, true); } });
+    const buehne = schau.querySelector('.schau__buehne'); let x0 = null, y0 = 0;
+    buehne.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    buehne.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) zeige(jetzt + (dx < 0 ? 1 : -1), true); }, { passive: true });
+    const halt = an => { pause = an; planen(); };
+    buehne.addEventListener('mouseenter', () => halt(true)); buehne.addEventListener('mouseleave', () => halt(false));
+    schau.addEventListener('focusin', () => halt(true)); schau.addEventListener('focusout', () => halt(false));
+    d.addEventListener('visibilitychange', planen);
+    if ('IntersectionObserver' in window) new IntersectionObserver(es => { sichtbar = es[0].isIntersecting; planen(); }, { threshold: .35 }).observe(schau);
+    else { sichtbar = true; planen(); }
+  });
+
   // ---------- Ritual: Feuer im Steinkreis, Funken und drei Atemzüge ----------
   d.querySelectorAll('[data-ritual]').forEach(r => {
     const en = r.dataset.lang === 'en';

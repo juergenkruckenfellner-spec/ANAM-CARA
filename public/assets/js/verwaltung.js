@@ -424,17 +424,20 @@
   // ===================== Bilder =====================
   ANSICHT.bilder = async () => {
     const [bl, i] = await Promise.all([api('/v/bilder'), api('/v/inhalt')]); S.bilder = bl;
-    const PL = { hero: 'Großes Bild auf der Startseite', sabine: 'Porträt Sabine', nina: 'Porträt Nina', ueber: 'Breites Bild auf „Über uns"' };
+    const PL = { hero: 'Großes Bild auf der Startseite', sabine: 'Porträt Sabine', nina: 'Porträt Nina', ueber: 'Breites Bild auf „Über uns"', hgReisen: 'Hintergrund hinter „Reisen" (Startseite)', hgKennen: 'Hintergrund im Feld „Kennenlernen"' };
     main.innerHTML = kopf('Bilder', `<label class="knopf">Fotos hochladen<input type="file" id="up" accept="image/jpeg,image/png,image/webp" multiple hidden></label>`) +
       `<div class="hinweisbox">Bitte nur eigene Fotos oder Fotos mit Erlaubnis der Fotografin verwenden. Keine KI-Bilder. Große Fotos werden beim Hochladen automatisch verkleinert.</div>
+      <div class="hinweisbox hinweisbox--gruen"><strong>Impressionen:</strong> Alle Fotos mit Haken „Impressionen" laufen auf der Startseite und unter <a href="/impressionen" target="_blank" rel="noopener">/impressionen</a> als Bildfolge. Die Reihenfolge stellt ihr mit ◀ ▶ ein. Hintergründe wählt ihr oben bei „Wo welches Foto erscheint".</div>
       <div class="karte"><h2 class="h3">Wo welches Foto erscheint</h2><div class="raster2">${Object.entries(PL).map(([k, t]) => `<div class="feld"><label>${t}</label>${bildWahl(i.einstellungen.bildplaetze[k], k)}</div>`).join('')}</div>
       <label class="haken"><input type="checkbox" id="gal" ${i.einstellungen.abschnitte.galerie ? 'checked' : ''}><span>Galerie auf der Website zeigen (alle Bilder mit Haken „Galerie")</span></label>
       <button class="knopf knopf--klein" id="plaetze">Zuordnung speichern</button></div>
       <div class="bildraster">${bl.map(b => `<div class="bildkachel" data-id="${b.id}"><img src="${bildUrl(b.id)}" alt="" loading="lazy">
         <label class="klein" for="a-${b.id}">Beschreibung (für Blinde und Google)</label><input id="a-${b.id}" data-alt="de" value="${esc(b.alt?.de || '')}" placeholder="Was ist zu sehen?">
         <input data-alt="en" value="${esc(b.alt?.en || '')}" placeholder="English description" aria-label="Beschreibung Englisch">
+        <input data-credit value="${esc(b.credit || '')}" placeholder="Foto von (z. B. Fotografin)" aria-label="Fotonachweis">
+        <label class="haken"><input type="checkbox" data-impression ${b.impression ? 'checked' : ''}><span>Impressionen</span></label>
         <label class="haken"><input type="checkbox" data-galerie ${b.galerie ? 'checked' : ''}><span>Galerie</span></label>
-        <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-sp>Speichern</button><button class="knopf knopf--leise knopf--klein" data-lo>Löschen</button></p></div>`).join('') || '<p class="leer">Noch keine Fotos.</p>'}</div>`;
+        <p class="reihe"><button class="knopf knopf--leise knopf--klein" data-vor title="Weiter nach vorne" aria-label="Weiter nach vorne">◀</button><button class="knopf knopf--leise knopf--klein" data-nach title="Weiter nach hinten" aria-label="Weiter nach hinten">▶</button><button class="knopf knopf--leise knopf--klein" data-sp>Speichern</button><button class="knopf knopf--leise knopf--klein" data-lo>Löschen</button></p></div>`).join('') || '<p class="leer">Noch keine Fotos.</p>'}</div>`;
     $$('[data-bild]').forEach(s => s.onchange = () => { const w = s.closest('.bildwahl'); w.firstElementChild.outerHTML = s.value ? `<img src="${bildUrl(s.value)}" alt="">` : '<span class="platz"></span>'; });
     $('#plaetze').onclick = () => sicher(() => api('/v/inhalt', { einstellungen: { bildplaetze: Object.fromEntries($$('[data-bild]').map(s => [s.dataset.bild, s.value])), abschnitte: { galerie: $('#gal').checked } } }), 'Gespeichert. Die Website ist aktualisiert.');
     $('#up').onchange = async e => {
@@ -450,8 +453,10 @@
     };
     $$('.bildkachel').forEach(k => {
       const id = k.dataset.id;
-      $('[data-sp]', k).onclick = () => sicher(() => api('/v/bild/aendern', { id, alt: { de: $('[data-alt="de"]', k).value, en: $('[data-alt="en"]', k).value }, galerie: $('[data-galerie]', k).checked }), 'Gespeichert.');
-      $('[data-galerie]', k).onchange = $('[data-sp]', k).onclick;
+      $('[data-sp]', k).onclick = () => sicher(() => api('/v/bild/aendern', { id, alt: { de: $('[data-alt="de"]', k).value, en: $('[data-alt="en"]', k).value }, galerie: $('[data-galerie]', k).checked, impression: $('[data-impression]', k).checked, credit: $('[data-credit]', k).value }), 'Gespeichert. Die Website ist aktualisiert.');
+      $('[data-galerie]', k).onchange = $('[data-impression]', k).onchange = $('[data-sp]', k).onclick;
+      $('[data-vor]', k).onclick = () => sicher(async () => { await api('/v/bild/verschieben', { id, richtung: 'vor' }); ANSICHT.bilder(); });
+      $('[data-nach]', k).onclick = () => sicher(async () => { await api('/v/bild/verschieben', { id, richtung: 'nach' }); ANSICHT.bilder(); });
       $('[data-lo]', k).onclick = () => confirm('Foto endgültig löschen? Es verschwindet überall auf der Website.') && sicher(async () => { await api('/v/bild/loeschen', { id }); ANSICHT.bilder(); }, 'Gelöscht.');
     });
   };
